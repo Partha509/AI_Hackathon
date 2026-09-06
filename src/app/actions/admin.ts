@@ -11,48 +11,22 @@ export async function getAdminMetrics() {
   const supabase = createAdminClient();
 
   try {
-    // 1. Total Courses
-    const { count: coursesCount, error: coursesError } = await supabase
-      .from("courses")
-      .select("*", { count: "exact", head: true });
+    const [coursesRes, facultyRes, studentsRes, appsRes] = await Promise.all([
+      supabase.from("courses").select("*", { count: "exact", head: true }),
+      supabase.from("profiles").select("*", { count: "exact", head: true }).eq("role", "faculty"),
+      supabase.from("profiles").select("*", { count: "exact", head: true }).eq("role", "student"),
+      supabase.from("course_applications").select("*", { count: "exact", head: true }).eq("status", "pending"),
+    ]);
 
-    // 2. Active Faculty Members
-    const { count: facultyCount, error: facultyError } = await supabase
-      .from("profiles")
-      .select("*", { count: "exact", head: true })
-      .eq("role", "faculty");
-
-    // 3. Enrolled Students
-    const { count: studentsCount, error: studentsError } = await supabase
-      .from("profiles")
-      .select("*", { count: "exact", head: true })
-      .eq("role", "student");
-
-    // 4. Pending Applications
-    let pendingApplicationsCount = 0;
-    let applicationsTableExists = true;
-
-    try {
-      const { count, error } = await supabase
-        .from("course_applications")
-        .select("*", { count: "exact", head: true })
-        .eq("status", "pending");
-
-      if (error) {
-        applicationsTableExists = false;
-      } else {
-        pendingApplicationsCount = count ?? 0;
-      }
-    } catch {
-      applicationsTableExists = false;
-    }
+    const applicationsTableExists = !appsRes.error;
+    const pendingApplicationsCount = appsRes.error ? 0 : (appsRes.count ?? 0);
 
     return {
       success: true,
       data: {
-        totalCourses: coursesCount ?? 0,
-        totalFaculty: facultyCount ?? 0,
-        totalStudents: studentsCount ?? 0,
+        totalCourses: coursesRes.count ?? 0,
+        totalFaculty: facultyRes.count ?? 0,
+        totalStudents: studentsRes.count ?? 0,
         pendingApplications: pendingApplicationsCount,
         applicationsTableExists,
       },
@@ -83,15 +57,12 @@ export async function getAdminCourses(): Promise<{
   const supabase = createAdminClient();
 
   try {
-    const { data: courses, error } = await supabase
-      .from("courses")
-      .select("*")
-      .order("code", { ascending: true });
+    const [{ data: courses, error }, { data: syllabi }] = await Promise.all([
+      supabase.from("courses").select("*").order("code", { ascending: true }),
+      supabase.from("syllabi").select("*"),
+    ]);
 
     if (error) throw error;
-
-    // Fetch syllabi topics for each course
-    const { data: syllabi } = await supabase.from("syllabi").select("*");
 
     const syllabiMap = new Map<string, Syllabus>();
     syllabi?.forEach((s) => syllabiMap.set(s.course_id, s));
@@ -358,15 +329,10 @@ export async function getCourseApplications(): Promise<{
     const studentIds = apps.map((a) => a.student_id);
     const courseIds = apps.map((a) => a.course_id);
 
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select("*")
-      .in("id", studentIds);
-
-    const { data: courses } = await supabase
-      .from("courses")
-      .select("*")
-      .in("id", courseIds);
+    const [{ data: profiles }, { data: courses }] = await Promise.all([
+      supabase.from("profiles").select("*").in("id", studentIds),
+      supabase.from("courses").select("*").in("id", courseIds),
+    ]);
 
     const profileMap = new Map((profiles || []).map((p) => [p.id, p]));
     const courseMap = new Map((courses || []).map((c) => [c.id, c]));
