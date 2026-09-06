@@ -38,6 +38,7 @@ type NavItem = {
 
 const navItems: NavItem[] = [
   // Faculty portal
+  { name: "Overview & Profile", href: "/dashboard/faculty", icon: LayoutDashboard, badge: "Faculty", roles: ["faculty"], exact: true },
   { name: "My Courses & Students", href: "/dashboard/faculty/courses", icon: BookOpen, badge: "Faculty", roles: ["faculty"] },
   { name: "Exam Questions & Archive", href: "/dashboard/faculty/questions", icon: FileQuestion, badge: "Faculty", roles: ["faculty"] },
   // Faculty tools
