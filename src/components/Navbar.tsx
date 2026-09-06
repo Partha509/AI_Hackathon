@@ -12,11 +12,14 @@ import {
   Menu,
   X,
   Sparkles,
-  LogIn,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ModeToggle } from "@/components/mode-toggle";
 import { Button } from "@/components/ui/button";
+import { AuthButton } from "@/components/auth/AuthButton";
+import { createClient } from "@/lib/supabase/client";
+import { canAccess } from "@/lib/access-control";
+import type { DbRole } from "@/lib/auth-roles";
 
 const navItems = [
   {
@@ -48,6 +51,36 @@ const navItems = [
 export function Navbar() {
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
+  const [role, setRole] = React.useState<DbRole | null>(null);
+
+  React.useEffect(() => {
+    const supabase = createClient();
+
+    async function loadRole() {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        setRole(null);
+        return;
+      }
+      const { data } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .single();
+      setRole((data?.role as DbRole) ?? null);
+    }
+
+    loadRole();
+    const { data: sub } = supabase.auth.onAuthStateChange(() => loadRole());
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
+  // Only show feature links the current role is allowed to reach.
+  const visibleNavItems = role
+    ? navItems.filter((item) => canAccess(role, item.href))
+    : [];
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/80 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -79,7 +112,7 @@ export function Navbar() {
 
         {/* Desktop Navigation Links */}
         <nav className="hidden md:flex items-center gap-1 lg:gap-2">
-          {navItems.map((item) => {
+          {visibleNavItems.map((item) => {
             const Icon = item.icon;
             const isActive =
               pathname === item.href ||
@@ -115,12 +148,7 @@ export function Navbar() {
 
           <ModeToggle />
 
-          <Button asChild size="sm" className="hidden md:inline-flex h-9 gap-1.5">
-            <Link href="/auth">
-              <LogIn className="h-4 w-4" />
-              Sign In
-            </Link>
-          </Button>
+          <AuthButton className="hidden md:inline-flex h-9" />
 
           {/* Mobile menu trigger */}
           <Button
@@ -147,7 +175,7 @@ export function Navbar() {
               <span>AUST CSE Carnival 8.0</span>
               <span className="font-semibold text-accent">Final Round</span>
             </div>
-            {navItems.map((item) => {
+            {visibleNavItems.map((item) => {
               const Icon = item.icon;
               const isActive = pathname === item.href;
               return (
@@ -172,12 +200,10 @@ export function Navbar() {
                 </Link>
               );
             })}
-            <Button asChild className="mt-2 w-full gap-1.5">
-              <Link href="/auth" onClick={() => setIsMobileMenuOpen(false)}>
-                <LogIn className="h-4 w-4" />
-                Sign In
-              </Link>
-            </Button>
+            <AuthButton
+              className="mt-2 w-full"
+              onNavigate={() => setIsMobileMenuOpen(false)}
+            />
           </div>
         </div>
       )}

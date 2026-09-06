@@ -19,6 +19,15 @@ Format: `- **[T<id> · P<n>]** <limitation> — <impact> — <fix if we had time
 ## P2 — Supabase & backend
 <!-- append here -->
 
+## Auth (Supabase)
+- **[Auth]** Teacher/student self-signup requires "Confirm email" to be OFF in Supabase Auth settings for instant demo login; otherwise users must confirm via email before signing in.
+- **[Auth]** Role is enforced at login by comparing `profiles.role` to the selected role; a mismatched account is signed out with an error. There is no server-side role guard on individual feature routes yet (middleware only checks that a session exists).
+- **[Auth]** UI role "teacher" maps to DB role `faculty` (schema constraint). Keep this mapping in `src/lib/auth-roles.ts` in sync with any schema change.
+- **[Auth]** Admin is created only via `npm run seed:admin` (service role); there is intentionally no admin signup UI.
+- **[RBAC]** Route access is enforced in `src/middleware.ts` (server) and the Navbar (client). Individual pages don't re-check the role, so access control relies on the middleware matcher covering the route. Data-layer RLS still governs what rows each role can read/write.
+- **[RBAC]** The middleware role check adds one `profiles` query per protected request (no caching). Fine for the hackathon; cache/JWT-claim the role for production.
+- **[RBAC]** Student experience currently maps to `/grade-disputes` only; there is no dedicated student dashboard yet (the page is still the faculty-facing advisory view).
+
 ## P3 — AI & QA
 <!-- append here -->
 

@@ -39,6 +39,11 @@ Legend: ⬜ not started · 🟨 in progress · ✅ done · ❌ blocked (say by w
 ## P1 — UI
 <!-- append here -->
 
+## Auth (Supabase)
+- [x] **Supabase Auth wired** — browser/server/admin/middleware clients, `signInWithPassword` + `signUp` in AuthForm with role enforcement, route guard middleware on the 4 feature routes, Sign In/Sign Out in Navbar, `supabase/auth.sql` profile trigger, `scripts/seed-admin.mjs` (`npm run seed:admin`). teacher→`faculty` role mapping. · verified: `npm run build` passes · uncommitted
+- [x] **Auth E2E tested (all 3 roles)** — teacher/student signup via `POST /api/auth/signup` (service-role: creates confirmed user + `profiles` row), login + RLS role check, admin login, and cross-role rejection all pass. Data verified in `profiles` table. Test: `node --env-file=.env.local scripts/test-auth.mjs`. · uncommitted
+- [x] **Role-based access control** — `src/lib/access-control.ts` maps routes→roles per the EduTrack matrix (admin: all; faculty: exam-quality/grading-consistency/grade-disputes/copilot-chat; student: grade-disputes only). Enforced server-side in `src/middleware.ts` (role check, not just session) and reflected in Navbar (links filtered by role). Fixed: middleware must live at `src/middleware.ts` (src-dir project), not repo root. Verified via browser E2E for student/teacher/admin/logged-out. · `npm run build` shows `ƒ Middleware` · uncommitted
+
 ## P2 — Supabase & backend
 <!-- append here; include row counts / sample API output -->
 

@@ -2,8 +2,13 @@ import { GraduationCap, Users, ShieldCheck, type LucideIcon } from "lucide-react
 
 export type RoleKey = "teacher" | "student" | "admin";
 
+/** Role value stored in the `profiles.role` column (schema constraint). */
+export type DbRole = "faculty" | "student" | "admin";
+
 export interface RoleConfig {
   key: RoleKey;
+  /** Maps the UI role to the DB `profiles.role` value. */
+  dbRole: DbRole;
   label: string;
   /** Short noun shown in copy, e.g. "faculty account". */
   noun: string;
@@ -24,6 +29,7 @@ export interface RoleConfig {
 export const ROLES: Record<RoleKey, RoleConfig> = {
   teacher: {
     key: "teacher",
+    dbRole: "faculty",
     label: "Teacher",
     noun: "faculty account",
     description:
@@ -42,6 +48,7 @@ export const ROLES: Record<RoleKey, RoleConfig> = {
   },
   student: {
     key: "student",
+    dbRole: "student",
     label: "Student",
     noun: "student account",
     description:
@@ -60,6 +67,7 @@ export const ROLES: Record<RoleKey, RoleConfig> = {
   },
   admin: {
     key: "admin",
+    dbRole: "admin",
     label: "Admin",
     noun: "administrator account",
     description:

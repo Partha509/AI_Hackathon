@@ -15,6 +15,7 @@ import {
   User as UserIcon,
 } from "lucide-react";
 import { ROLES, type RoleKey } from "@/lib/auth-roles";
+import { createClient } from "@/lib/supabase/client";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -76,16 +77,69 @@ export function AuthForm({ role, mode }: AuthFormProps) {
     if (Object.keys(validation).length > 0) return;
 
     setIsSubmitting(true);
-    // Auth backend not wired yet — simulate the request so the flow is demoable.
-    await new Promise((resolve) => setTimeout(resolve, 900));
-    setIsSubmitting(false);
+    const supabase = createClient();
 
-    toast.success(
-      isSignup
-        ? `${config.label} account created. Welcome to FacultyOS!`
-        : `Signed in as ${config.label}.`
-    );
-    router.push(config.landingHref);
+    try {
+      if (isSignup) {
+        const res = await fetch("/api/auth/signup", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            email: data.email,
+            password: data.password,
+            fullName: data.fullName,
+            role: config.dbRole,
+          }),
+        });
+        const json = await res.json();
+        if (!res.ok || !json.ok) {
+          throw new Error(json.error ?? "Could not create account.");
+        }
+
+        // Account is created + confirmed server-side; establish the session now.
+        const { error } = await supabase.auth.signInWithPassword({
+          email: data.email,
+          password: data.password,
+        });
+        if (error) throw error;
+
+        toast.success(`${config.label} account created. Welcome to FacultyOS!`);
+        router.push(config.landingHref);
+        router.refresh();
+        return;
+      }
+
+      const { data: result, error } = await supabase.auth.signInWithPassword({
+        email: data.email,
+        password: data.password,
+      });
+      if (error) throw error;
+
+      // Enforce that the account's role matches the role being signed into.
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", result.user.id)
+        .single();
+
+      if (profile?.role !== config.dbRole) {
+        await supabase.auth.signOut();
+        toast.error(
+          `This account is not registered as ${config.label}. Use the correct role's sign-in.`
+        );
+        return;
+      }
+
+      toast.success(`Signed in as ${config.label}.`);
+      router.push(config.landingHref);
+      router.refresh();
+    } catch (err) {
+      const message =
+        err instanceof Error ? err.message : "Something went wrong. Try again.";
+      toast.error(message);
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   const oppositeHref = isSignup
