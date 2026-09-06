@@ -9,15 +9,17 @@ import type { DbRole } from "./auth-roles";
 export const ROUTE_ACCESS: { prefix: string; roles: DbRole[] }[] = [
   { prefix: "/exam-quality", roles: ["admin", "faculty"] },
   { prefix: "/grading-consistency", roles: ["admin", "faculty"] },
-  { prefix: "/grade-disputes", roles: ["admin", "faculty", "student"] },
+  { prefix: "/grade-disputes", roles: ["admin", "faculty"] },
   { prefix: "/copilot-chat", roles: ["admin", "faculty"] },
+  { prefix: "/dashboard/admin", roles: ["admin"] },
+  { prefix: "/dashboard/student", roles: ["student"] },
 ];
 
 /** Where each role lands after login (and where forbidden access is redirected). */
 export const ROLE_HOME: Record<DbRole, string> = {
-  admin: "/",
+  admin: "/dashboard/admin",
   faculty: "/copilot-chat",
-  student: "/grade-disputes",
+  student: "/dashboard/student",
 };
 
 /** Returns the allowed roles for a path, or null if the path isn't access-controlled. */

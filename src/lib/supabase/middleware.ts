@@ -12,7 +12,11 @@ const PROTECTED_PREFIXES = [
   "/grading-consistency",
   "/grade-disputes",
   "/copilot-chat",
+  "/dashboard/admin",
+  "/dashboard/student",
 ];
+
+const SET_PASSWORD_PATH = "/auth/set-password";
 
 export async function updateSession(request: NextRequest) {
   let response = NextResponse.next({ request });
@@ -53,17 +57,25 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(redirectUrl);
   }
 
-  // Role-based access: signed-in users may only reach routes for their role.
+  // Role-based access + invite completion gate for signed-in users.
   const allowed = allowedRolesForPath(pathname);
-  if (allowed && user) {
+  if (user) {
     const { data: profile } = await supabase
       .from("profiles")
-      .select("role")
+      .select("role, must_change_password")
       .eq("id", user.id)
       .single();
 
+    // Force invited users to set a password before using the app.
+    if (profile?.must_change_password && pathname !== SET_PASSWORD_PATH) {
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = SET_PASSWORD_PATH;
+      redirectUrl.search = "";
+      return NextResponse.redirect(redirectUrl);
+    }
+
     const role = profile?.role as DbRole | undefined;
-    if (!role || !allowed.includes(role)) {
+    if (allowed && (!role || !allowed.includes(role))) {
       const redirectUrl = request.nextUrl.clone();
       redirectUrl.pathname = role ? ROLE_HOME[role] : "/auth";
       redirectUrl.search = "";
