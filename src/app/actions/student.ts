@@ -12,29 +12,37 @@ export async function getStudentCoursesData(studentEmailOrId?: string) {
   const supabase = createAdminClient();
 
   try {
-    // 1. Fetch courses
-    const { data: courses, error: courseErr } = await supabase
+    // Start the (independent) courses query immediately so it runs in parallel
+    // with the student-profile lookup below instead of waterfalling.
+    const coursesPromise = supabase
       .from("courses")
       .select("*")
       .order("code", { ascending: true });
 
-    if (courseErr) throw courseErr;
-
-    // 2. Fetch student profile if provided
+    // Resolve the student profile in parallel with the courses query.
     let studentProfile: Profile | null = null;
     let studentApps: CourseApplication[] = [];
 
-    if (studentEmailOrId) {
-      const { data: student } = await supabase
-        .from("profiles")
-        .select("*")
-        .or(`id.eq.${studentEmailOrId},email.eq.${studentEmailOrId}`)
-        .single();
+    let courses: any[] | null = null;
+    let courseErr: any = null;
 
+    if (studentEmailOrId) {
+      const [coursesRes, studentRes] = await Promise.all([
+        coursesPromise,
+        supabase
+          .from("profiles")
+          .select("*")
+          .or(`id.eq.${studentEmailOrId},email.eq.${studentEmailOrId}`)
+          .single(),
+      ]);
+      courses = coursesRes.data;
+      courseErr = coursesRes.error;
+
+      const student = studentRes.data;
       if (student) {
         studentProfile = student as Profile;
 
-        // Fetch applications for this student
+        // Fetch applications for this student (depends on the resolved id).
         try {
           const { data: apps } = await supabase
             .from("course_applications")
@@ -46,7 +54,25 @@ export async function getStudentCoursesData(studentEmailOrId?: string) {
           // Table might be pending
         }
       }
+    } else {
+      // No id supplied: fetch courses and the fallback student concurrently.
+      const [coursesRes, firstStudentRes] = await Promise.all([
+        coursesPromise,
+        supabase
+          .from("profiles")
+          .select("*")
+          .eq("role", "student")
+          .limit(1)
+          .single(),
+      ]);
+      courses = coursesRes.data;
+      courseErr = coursesRes.error;
+      if (firstStudentRes.data) {
+        studentProfile = firstStudentRes.data as Profile;
+      }
     }
+
+    if (courseErr) throw courseErr;
 
     // Default fallback student profile if not found or in test mode
     if (!studentProfile) {

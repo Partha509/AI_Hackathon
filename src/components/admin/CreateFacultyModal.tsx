@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { UserPlus, GraduationCap, Loader2, KeyRound, Check } from "lucide-react";
+import { GraduationCap, Loader2, Check, MailCheck, TriangleAlert, Copy } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,10 +32,11 @@ export function CreateFacultyModal({
   const [fullName, setFullName] = React.useState("");
   const [email, setEmail] = React.useState("");
   const [department, setDepartment] = React.useState("CSE");
-  const [tempPassword, setTempPassword] = React.useState("Aust1234!");
   const [successInfo, setSuccessInfo] = React.useState<{
     email: string;
-    tempPassword: string;
+    emailSent: boolean;
+    emailError?: string;
+    inviteLink?: string;
   } | null>(null);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -50,15 +51,20 @@ export function CreateFacultyModal({
       fullName,
       email,
       department,
-      tempPassword,
     });
     setLoading(false);
 
     if (res.success) {
-      toast.success(`Faculty account provisioned for ${fullName}!`);
+      if (res.emailSent) {
+        toast.success(`Verification email sent to ${res.email || email}`);
+      } else {
+        toast.warning("Account created, but the email could not be sent.");
+      }
       setSuccessInfo({
         email: res.email || email,
-        tempPassword: res.tempPassword || tempPassword,
+        emailSent: Boolean(res.emailSent),
+        emailError: res.emailError,
+        inviteLink: res.inviteLink,
       });
       onUserCreated?.();
     } else {
@@ -71,7 +77,6 @@ export function CreateFacultyModal({
     setSuccessInfo(null);
     setFullName("");
     setEmail("");
-    setTempPassword("Aust1234!");
   }
 
   return (
@@ -105,23 +110,55 @@ export function CreateFacultyModal({
 
         {successInfo ? (
           <div className="space-y-4 py-3">
-            <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-xs text-emerald-900 dark:text-emerald-200 space-y-2">
-              <div className="flex items-center gap-2 font-bold text-sm text-emerald-700 dark:text-emerald-400">
-                <Check className="h-4 w-4" />
-                <span>Account Created Successfully</span>
-              </div>
-              <p>Share these temporary credentials with the faculty member:</p>
-              <div className="bg-background/80 p-2.5 rounded-lg border border-border font-mono space-y-1">
-                <div>
-                  <span className="text-muted-foreground">Email: </span>
-                  <strong className="text-foreground">{successInfo.email}</strong>
+            {successInfo.emailSent ? (
+              <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 p-4 text-xs text-emerald-900 dark:text-emerald-200 space-y-2">
+                <div className="flex items-center gap-2 font-bold text-sm text-emerald-700 dark:text-emerald-400">
+                  <MailCheck className="h-4 w-4" />
+                  <span>Verification Email Sent</span>
                 </div>
-                <div>
-                  <span className="text-muted-foreground">Temp Password: </span>
-                  <strong className="text-primary">{successInfo.tempPassword}</strong>
-                </div>
+                <p>
+                  A verification link was emailed to{" "}
+                  <strong className="text-foreground">{successInfo.email}</strong>.
+                  They must click it to verify their email and set a password
+                  before they can sign in.
+                </p>
               </div>
-            </div>
+            ) : (
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-xs text-amber-900 dark:text-amber-200 space-y-2">
+                <div className="flex items-center gap-2 font-bold text-sm text-amber-700 dark:text-amber-400">
+                  <TriangleAlert className="h-4 w-4" />
+                  <span>Account Created — Email Not Sent</span>
+                </div>
+                <p>
+                  The account for{" "}
+                  <strong className="text-foreground">{successInfo.email}</strong>{" "}
+                  was created, but the email could not be delivered
+                  {successInfo.emailError ? ` (${successInfo.emailError})` : ""}.
+                  {successInfo.inviteLink
+                    ? " Share this verification link with them manually:"
+                    : " Check the SMTP configuration and try again."}
+                </p>
+                {successInfo.inviteLink && (
+                  <div className="flex items-center gap-2">
+                    <code className="flex-1 truncate rounded bg-background/80 px-2 py-1 text-[11px] border border-border">
+                      {successInfo.inviteLink}
+                    </code>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="h-7 gap-1 px-2"
+                      onClick={() => {
+                        navigator.clipboard.writeText(successInfo.inviteLink!);
+                        toast.success("Link copied");
+                      }}
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
             <Button className="w-full" onClick={handleClose}>
               Done
             </Button>
@@ -157,37 +194,29 @@ export function CreateFacultyModal({
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="dept" className="text-xs font-semibold">
-                  Department
-                </Label>
-                <select
-                  id="dept"
-                  value={department}
-                  onChange={(e) => setDepartment(e.target.value)}
-                  className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                >
-                  <option value="CSE">Computer Science & Eng (CSE)</option>
-                  <option value="EEE">Electrical & Electronic Eng (EEE)</option>
-                  <option value="CE">Civil Engineering (CE)</option>
-                  <option value="ME">Mechanical Engineering (ME)</option>
-                  <option value="TE">Textile Engineering (TE)</option>
-                </select>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label htmlFor="tempPass" className="text-xs font-semibold">
-                  Temporary Password
-                </Label>
-                <Input
-                  id="tempPass"
-                  value={tempPassword}
-                  onChange={(e) => setTempPassword(e.target.value)}
-                  className="h-9 font-mono text-xs"
-                />
-              </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="dept" className="text-xs font-semibold">
+                Department
+              </Label>
+              <select
+                id="dept"
+                value={department}
+                onChange={(e) => setDepartment(e.target.value)}
+                className="w-full h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-xs focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+              >
+                <option value="CSE">Computer Science & Eng (CSE)</option>
+                <option value="EEE">Electrical & Electronic Eng (EEE)</option>
+                <option value="CE">Civil Engineering (CE)</option>
+                <option value="ME">Mechanical Engineering (ME)</option>
+                <option value="TE">Textile Engineering (TE)</option>
+              </select>
             </div>
+
+            <p className="text-[11px] text-muted-foreground">
+              A verification email with a secure link to set their password will
+              be sent to this address. The account stays inactive until they
+              complete setup.
+            </p>
 
             <DialogFooter className="pt-2">
               <Button

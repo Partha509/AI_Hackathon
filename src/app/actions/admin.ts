@@ -1,8 +1,20 @@
 "use server";
 
+import { randomBytes } from "crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
+import { sendInviteEmail, isValidEmail } from "@/lib/email/mailer";
+import { generateAccountSetupLink } from "@/lib/auth/setup-link";
 import type { Course, CourseApplication, Profile, Syllabus } from "@/lib/supabase/types";
+
+/**
+ * Generates a strong, unguessable placeholder password for invited accounts.
+ * The real password is set by the user via the emailed verification link, so
+ * this value is never shared and effectively locks the account until setup.
+ */
+function generateStrongPassword(): string {
+  return `${randomBytes(24).toString("base64url")}Aa1!`;
+}
 
 // ---------------------------------------------------------------------------
 // 1. Dashboard Metrics
@@ -11,48 +23,23 @@ export async function getAdminMetrics() {
   const supabase = createAdminClient();
 
   try {
-    // 1. Total Courses
-    const { count: coursesCount, error: coursesError } = await supabase
-      .from("courses")
-      .select("*", { count: "exact", head: true });
+    // Run all count queries in parallel to avoid a request waterfall.
+    const [coursesRes, facultyRes, studentsRes, appsRes] = await Promise.all([
+      supabase.from("courses").select("*", { count: "exact", head: true }),
+      supabase.from("profiles").select("*", { count: "exact", head: true }).eq("role", "faculty"),
+      supabase.from("profiles").select("*", { count: "exact", head: true }).eq("role", "student"),
+      supabase.from("course_applications").select("*", { count: "exact", head: true }).eq("status", "pending"),
+    ]);
 
-    // 2. Active Faculty Members
-    const { count: facultyCount, error: facultyError } = await supabase
-      .from("profiles")
-      .select("*", { count: "exact", head: true })
-      .eq("role", "faculty");
-
-    // 3. Enrolled Students
-    const { count: studentsCount, error: studentsError } = await supabase
-      .from("profiles")
-      .select("*", { count: "exact", head: true })
-      .eq("role", "student");
-
-    // 4. Pending Applications
-    let pendingApplicationsCount = 0;
-    let applicationsTableExists = true;
-
-    try {
-      const { count, error } = await supabase
-        .from("course_applications")
-        .select("*", { count: "exact", head: true })
-        .eq("status", "pending");
-
-      if (error) {
-        applicationsTableExists = false;
-      } else {
-        pendingApplicationsCount = count ?? 0;
-      }
-    } catch {
-      applicationsTableExists = false;
-    }
+    const applicationsTableExists = !appsRes.error;
+    const pendingApplicationsCount = appsRes.error ? 0 : (appsRes.count ?? 0);
 
     return {
       success: true,
       data: {
-        totalCourses: coursesCount ?? 0,
-        totalFaculty: facultyCount ?? 0,
-        totalStudents: studentsCount ?? 0,
+        totalCourses: coursesRes.count ?? 0,
+        totalFaculty: facultyRes.count ?? 0,
+        totalStudents: studentsRes.count ?? 0,
         pendingApplications: pendingApplicationsCount,
         applicationsTableExists,
       },
@@ -83,15 +70,13 @@ export async function getAdminCourses(): Promise<{
   const supabase = createAdminClient();
 
   try {
-    const { data: courses, error } = await supabase
-      .from("courses")
-      .select("*")
-      .order("code", { ascending: true });
+    // Courses and syllabi are independent — fetch in parallel.
+    const [{ data: courses, error }, { data: syllabi }] = await Promise.all([
+      supabase.from("courses").select("*").order("code", { ascending: true }),
+      supabase.from("syllabi").select("*"),
+    ]);
 
     if (error) throw error;
-
-    // Fetch syllabi topics for each course
-    const { data: syllabi } = await supabase.from("syllabi").select("*");
 
     const syllabiMap = new Map<string, Syllabus>();
     syllabi?.forEach((s) => syllabiMap.set(s.course_id, s));
@@ -358,15 +343,10 @@ export async function getCourseApplications(): Promise<{
     const studentIds = apps.map((a) => a.student_id);
     const courseIds = apps.map((a) => a.course_id);
 
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select("*")
-      .in("id", studentIds);
-
-    const { data: courses } = await supabase
-      .from("courses")
-      .select("*")
-      .in("id", courseIds);
+    const [{ data: profiles }, { data: courses }] = await Promise.all([
+      supabase.from("profiles").select("*").in("id", studentIds),
+      supabase.from("courses").select("*").in("id", courseIds),
+    ]);
 
     const profileMap = new Map((profiles || []).map((p) => [p.id, p]));
     const courseMap = new Map((courses || []).map((c) => [c.id, c]));
@@ -694,7 +674,13 @@ export async function provisionFacultyAction(payload: {
   const email = payload.email.trim().toLowerCase();
   const fullName = payload.fullName.trim();
   const department = payload.department.trim() || "CSE";
-  const tempPassword = payload.tempPassword?.trim() || "Aust1234!";
+  // Invited accounts get an unguessable password; the user sets their real one
+  // via the emailed verification link.
+  const tempPassword = generateStrongPassword();
+
+  if (!isValidEmail(email)) {
+    return { success: false, error: "Please enter a valid email address." };
+  }
 
   try {
     // 1. Create or get Supabase Auth user
@@ -737,6 +723,8 @@ export async function provisionFacultyAction(payload: {
       full_name: fullName,
       role: "faculty",
       department,
+      // Pending until the user verifies their email and sets a password.
+      must_change_password: true,
     };
 
     const { error: profileErr } = await supabase
@@ -744,6 +732,23 @@ export async function provisionFacultyAction(payload: {
       .upsert(profilePayload, { onConflict: "id" });
 
     if (profileErr) throw profileErr;
+
+    // 3. Generate verification link and email the invite.
+    const inviteLink = await generateAccountSetupLink(email);
+    let emailSent = false;
+    let emailError: string | undefined;
+    if (inviteLink) {
+      const result = await sendInviteEmail({
+        to: email,
+        fullName,
+        role: "faculty",
+        verifyUrl: inviteLink,
+      });
+      emailSent = result.sent;
+      emailError = result.error;
+    } else {
+      emailError = "Could not generate a verification link";
+    }
 
     revalidatePath("/dashboard/admin");
     revalidatePath("/dashboard/admin/users");
@@ -754,7 +759,9 @@ export async function provisionFacultyAction(payload: {
       userId,
       email,
       fullName,
-      tempPassword,
+      emailSent,
+      emailError,
+      inviteLink: inviteLink ?? undefined,
     };
   } catch (err: any) {
     return {
@@ -778,7 +785,13 @@ export async function provisionStudentAction(payload: {
   const studentIdNumber = payload.studentIdNumber.trim();
   const currentSemester = payload.initialSemester.trim();
   const department = payload.department?.trim() || "CSE";
-  const tempPassword = payload.tempPassword?.trim() || "Aust1234!";
+  // Invited accounts get an unguessable password; the user sets their real one
+  // via the emailed verification link.
+  const tempPassword = generateStrongPassword();
+
+  if (!isValidEmail(email)) {
+    return { success: false, error: "Please enter a valid email address." };
+  }
 
   try {
     // 1. Create or get Supabase Auth user
@@ -824,6 +837,8 @@ export async function provisionStudentAction(payload: {
       department,
       student_id_number: studentIdNumber,
       current_semester: currentSemester,
+      // Pending until the user verifies their email and sets a password.
+      must_change_password: true,
     };
 
     let { error: profileErr } = await supabase
@@ -846,6 +861,23 @@ export async function provisionStudentAction(payload: {
 
     if (profileErr) throw profileErr;
 
+    // 3. Generate verification link and email the invite.
+    const inviteLink = await generateAccountSetupLink(email);
+    let emailSent = false;
+    let emailError: string | undefined;
+    if (inviteLink) {
+      const result = await sendInviteEmail({
+        to: email,
+        fullName,
+        role: "student",
+        verifyUrl: inviteLink,
+      });
+      emailSent = result.sent;
+      emailError = result.error;
+    } else {
+      emailError = "Could not generate a verification link";
+    }
+
     revalidatePath("/dashboard/admin");
     revalidatePath("/dashboard/admin/users");
     revalidatePath("/dashboard/admin/enrollments");
@@ -857,7 +889,9 @@ export async function provisionStudentAction(payload: {
       fullName,
       studentIdNumber,
       currentSemester,
-      tempPassword,
+      emailSent,
+      emailError,
+      inviteLink: inviteLink ?? undefined,
     };
   } catch (err: any) {
     return {
