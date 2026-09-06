@@ -9,12 +9,16 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { getStudentCoursesData } from "@/app/actions/student";
+import { getCurrentProfile } from "@/lib/auth/current-user";
 import { StudentCourseApplicationView } from "@/components/student/StudentCourseApplicationView";
 
 export const dynamic = "force-dynamic";
 
 export default async function StudentCoursesPage() {
-  const data = await getStudentCoursesData();
+  // Load the signed-in student so their real application status is fetched
+  // (otherwise the catalog falls back to the first student and shows nothing applied).
+  const profile = await getCurrentProfile();
+  const data = await getStudentCoursesData(profile?.id);
   const student = data.student!;
   const courses = data.courses || [];
 
