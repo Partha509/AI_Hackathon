@@ -12,6 +12,7 @@ import {
   Menu,
   X,
   Sparkles,
+  LogIn,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ModeToggle } from "@/components/mode-toggle";
@@ -114,6 +115,13 @@ export function Navbar() {
 
           <ModeToggle />
 
+          <Button asChild size="sm" className="hidden md:inline-flex h-9 gap-1.5">
+            <Link href="/auth">
+              <LogIn className="h-4 w-4" />
+              Sign In
+            </Link>
+          </Button>
+
           {/* Mobile menu trigger */}
           <Button
             variant="ghost"
@@ -164,6 +172,12 @@ export function Navbar() {
                 </Link>
               );
             })}
+            <Button asChild className="mt-2 w-full gap-1.5">
+              <Link href="/auth" onClick={() => setIsMobileMenuOpen(false)}>
+                <LogIn className="h-4 w-4" />
+                Sign In
+              </Link>
+            </Button>
           </div>
         </div>
       )}
