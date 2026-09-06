@@ -3,7 +3,8 @@
 import { createClient } from "@supabase/supabase-js";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const serviceKey =
+  process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
 const email = process.env.SEED_ADMIN_EMAIL || "admin@facultyos.edu";
 const password = process.env.SEED_ADMIN_PASSWORD || "Admin@12345";
 const fullName = process.env.SEED_ADMIN_NAME || "System Administrator";

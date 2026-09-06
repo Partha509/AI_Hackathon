@@ -20,6 +20,7 @@ import { AuthButton } from "@/components/auth/AuthButton";
 import { createClient } from "@/lib/supabase/client";
 import { canAccess } from "@/lib/access-control";
 import type { DbRole } from "@/lib/auth-roles";
+import { FacultyChatbot } from "@/components/FacultyChatbot";
 
 const navItems = [
   {
@@ -207,6 +208,9 @@ export function Navbar() {
           </div>
         </div>
       )}
+
+      {/* Persistent AI Co-Pilot drawer (floating trigger + slide-over) */}
+      <FacultyChatbot />
     </header>
   );
 }
