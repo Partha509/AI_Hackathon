@@ -42,6 +42,7 @@ export interface Course {
   id: string;
   code: string;
   title: string;
+  status?: "active" | "inactive";
   faculty_name?: string;
   faculty_id?: string;
   description?: string;
@@ -257,5 +258,67 @@ export interface AdvanceSessionResult {
   new_session: string;
   advanced: number;
   graduated: number;
+}
+
+// ── Course question bank ──────────────────────────────────────────────
+
+export type QuestionSource = "manual" | "ai" | "source_material";
+
+export interface CourseQuestion {
+  id: string;
+  course_id: string;
+  question_text: string;
+  topic: string | null;
+  marks: number;
+  source: QuestionSource;
+  is_previous: boolean;
+  session: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
+// ── Course lifecycle & faculty evaluation ─────────────────────────────
+
+export interface FinalMark {
+  id: string;
+  course_id: string;
+  student_id: string;
+  marks: number;
+  letter_grade: string | null;
+  submitted_by: string | null;
+  submitted_at: string;
+}
+
+export interface FacultyEvaluation {
+  id: string;
+  course_id: string;
+  faculty_id: string | null;
+  student_id: string;
+  rating: number;
+  comment: string | null;
+  submitted_at: string;
+}
+
+/** Faculty-facing: aggregate only, never individual rows. */
+export interface EvaluationSummary {
+  course_code: string;
+  count: number;
+  average_rating: number | null;
+}
+
+/** A course a student may (or already did) evaluate. */
+export interface EvaluableCourse {
+  course_id: string;
+  code: string;
+  title: string;
+  faculty_name: string | null;
+  already_evaluated: boolean;
+}
+
+export interface EndCourseResult {
+  course_code: string;
+  status: "inactive";
+  students_marked: number;
+  total_students: number;
 }
 

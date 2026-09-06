@@ -26,6 +26,12 @@ export async function updateSession(request: NextRequest) {
     return response;
   }
 
+  // API routes authenticate themselves. Skipping here avoids a token-refresh
+  // race where middleware rotates the cookie and the route reads the stale one.
+  if (request.nextUrl.pathname.startsWith("/api")) {
+    return response;
+  }
+
   const supabase = createServerClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     cookies: {
       getAll() {

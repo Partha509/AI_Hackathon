@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 type Message = { role: "user" | "assistant"; content: string };
 
 const WELCOME =
-  "Greetings, Faculty Member. I am your FacultyOS Co-Pilot, connected to your live academic database. Ask me about courses, exams, answer scripts, grades, or regrade requests.";
+  "Greetings. I am your FacultyOS Co-Pilot. I can look up your academic data and take actions for you — create courses, add students or teachers (they get an email invite), and enroll students into courses. Just tell me what you need; I'll ask for any missing details before making changes.";
 
 export function FacultyChat() {
   const [messages, setMessages] = React.useState<Message[]>([]);
@@ -134,7 +134,7 @@ export function FacultyChat() {
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={onKeyDown}
           rows={1}
-          placeholder="Ask the Co-Pilot… (e.g. 'Which scripts have grading discrepancies?')"
+          placeholder="Tell the Co-Pilot… (e.g. 'Create course CSE 3205 Digital Logic' or 'Enroll Fahim into CSE 3201')"
           className="flex-1 resize-none bg-transparent px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none"
         />
         <Button size="sm" className="h-9 gap-1.5 px-4" onClick={send} disabled={isSending || !input.trim()}>
