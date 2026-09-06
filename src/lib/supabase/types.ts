@@ -6,6 +6,17 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[];
 
+export type Semester =
+  | "1.1"
+  | "1.2"
+  | "2.1"
+  | "2.2"
+  | "3.1"
+  | "3.2"
+  | "4.1"
+  | "4.2"
+  | "Graduated";
+
 export interface Profile {
   id: string;
   auth_user_id?: string | null;
@@ -14,10 +25,17 @@ export interface Profile {
   role: "faculty" | "student" | "admin";
   department: string;
   student_id?: string | null;
-  current_semester?: string | null;
+  student_id_number?: string | null;
+  current_semester?: Semester | null;
   must_change_password?: boolean;
   is_active?: boolean;
   created_at: string;
+}
+
+export interface SystemSettings {
+  id: number;
+  current_session: string;
+  updated_at?: string;
 }
 
 export interface Course {
@@ -25,6 +43,9 @@ export interface Course {
   code: string;
   title: string;
   faculty_name?: string;
+  faculty_id?: string;
+  description?: string;
+  department?: string;
   assigned_faculty?: {
     faculty_id?: string;
     name: string;
@@ -39,12 +60,23 @@ export interface Course {
     semester?: string;
     status?: string;
   }[];
-  learning_objectives: {
+  learning_objectives?: {
     clo: string;
     description: string;
     blooms_level: string;
   }[];
   created_at: string;
+}
+
+export interface CourseApplication {
+  id: string;
+  student_id: string;
+  course_id: string;
+  status: "pending" | "approved" | "rejected";
+  applied_at: string;
+  reviewed_at?: string | null;
+  profiles?: Profile;
+  courses?: Course;
 }
 
 export interface CourseEnrollment {

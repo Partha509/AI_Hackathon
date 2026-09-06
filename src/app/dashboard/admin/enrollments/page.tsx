@@ -1,25 +1,39 @@
 import Link from "next/link";
 import {
-  Users,
+  ClipboardList,
   ArrowLeft,
-  GraduationCap,
+  Users,
+  CheckCircle2,
+  Clock,
   ShieldCheck,
-  Building2,
-  UserPlus,
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { getAllUsersAction } from "@/app/actions/admin";
-import { UserDirectoryManager } from "@/components/admin/UserDirectoryManager";
+import {
+  getCourseApplications,
+  getAdminCourses,
+  getStudentProfiles,
+} from "@/app/actions/admin";
+import { EnrollmentManager } from "@/components/admin/EnrollmentManager";
 
 export const dynamic = "force-dynamic";
 
-export default async function AdminUsersPage() {
-  const usersRes = await getAllUsersAction();
-  const users = usersRes.users || [];
+export default async function AdminEnrollmentsPage() {
+  const [appsRes, coursesRes, studentsRes] = await Promise.all([
+    getCourseApplications(),
+    getAdminCourses(),
+    getStudentProfiles(),
+  ]);
 
-  const facultyCount = users.filter((u) => u.role === "faculty").length;
-  const studentCount = users.filter((u) => u.role === "student").length;
+  const applications = appsRes.applications || [];
+  const courses = coursesRes.courses || [];
+  const students = studentsRes.students || [];
+  const tableExists = appsRes.tableExists;
+
+  const pendingCount = applications.filter((a) => a.status === "pending").length;
+  const approvedCount = applications.filter(
+    (a) => a.status === "approved"
+  ).length;
 
   return (
     <div className="container mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8 space-y-8">
@@ -40,15 +54,15 @@ export default async function AdminUsersPage() {
             </Button>
             <span className="text-muted-foreground/40">/</span>
             <Badge variant="outline" className="text-xs font-normal">
-              Identity & Access Management
+              Student Admissions & Enrollment
             </Badge>
           </div>
           <h1 className="font-heading text-3xl font-extrabold tracking-tight text-foreground flex items-center gap-2.5">
-            <Users className="h-7 w-7 text-primary" />
-            User Provisioning & Directory
+            <ClipboardList className="h-7 w-7 text-accent" />
+            Enrollment & Applications Management
           </h1>
           <p className="text-sm text-muted-foreground mt-1 max-w-2xl">
-            Provision verified faculty instructors and undergraduate students with immutable Student ID Numbers and current semester levels.
+            Adjudicate student course enrollment petitions, execute direct manual enrollments, and inspect live semester course rosters.
           </p>
         </div>
 
@@ -56,35 +70,42 @@ export default async function AdminUsersPage() {
         <div className="flex items-center gap-3">
           <div className="rounded-xl border border-border/70 bg-card px-4 py-2.5 shadow-xs text-center">
             <span className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold block">
-              Total Accounts
+              Pending Review
+            </span>
+            <span className={`font-heading text-xl font-extrabold ${
+              pendingCount > 0 ? "text-amber-500" : "text-foreground"
+            }`}>
+              {pendingCount}
+            </span>
+          </div>
+
+          <div className="rounded-xl border border-border/70 bg-card px-4 py-2.5 shadow-xs text-center">
+            <span className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold block">
+              Enrolled (Approved)
+            </span>
+            <span className="font-heading text-xl font-extrabold text-emerald-600 dark:text-emerald-400">
+              {approvedCount}
+            </span>
+          </div>
+
+          <div className="rounded-xl border border-border/70 bg-card px-4 py-2.5 shadow-xs text-center">
+            <span className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold block">
+              Total Applications
             </span>
             <span className="font-heading text-xl font-extrabold text-foreground">
-              {users.length}
-            </span>
-          </div>
-
-          <div className="rounded-xl border border-border/70 bg-card px-4 py-2.5 shadow-xs text-center">
-            <span className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold block">
-              Faculty
-            </span>
-            <span className="font-heading text-xl font-extrabold text-primary">
-              {facultyCount}
-            </span>
-          </div>
-
-          <div className="rounded-xl border border-border/70 bg-card px-4 py-2.5 shadow-xs text-center">
-            <span className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold block">
-              Students
-            </span>
-            <span className="font-heading text-xl font-extrabold text-accent">
-              {studentCount}
+              {applications.length}
             </span>
           </div>
         </div>
       </div>
 
-      {/* Directory Management Table with Modals */}
-      <UserDirectoryManager initialUsers={users} />
+      {/* Main Enrollment Manager */}
+      <EnrollmentManager
+        initialApplications={applications}
+        courses={courses}
+        students={students}
+        tableExists={tableExists}
+      />
     </div>
   );
 }

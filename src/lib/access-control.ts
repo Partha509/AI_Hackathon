@@ -1,15 +1,15 @@
 import type { DbRole } from "./auth-roles";
 
 /**
- * Role-based access for feature routes, per the EduTrack feature matrix:
- *  - admin: oversight across everything
+ * Role-based access for feature routes:
+ *  - admin: full portal oversight, course & faculty assignment, enrollment approvals
  *  - faculty (teacher): exam quality, grading consistency, dispute resolution, co-pilot
  *  - student: grade disputes only (submit/track)
  */
 export const ROUTE_ACCESS: { prefix: string; roles: DbRole[] }[] = [
   { prefix: "/dashboard/faculty", roles: ["admin", "faculty"] },
   { prefix: "/dashboard/admin", roles: ["admin"] },
-  { prefix: "/dashboard/student", roles: ["student"] },
+  { prefix: "/dashboard/student", roles: ["admin", "student"] },
   { prefix: "/exam-quality", roles: ["admin", "faculty"] },
   { prefix: "/grading-consistency", roles: ["admin", "faculty"] },
   { prefix: "/grade-disputes", roles: ["admin", "faculty"] },

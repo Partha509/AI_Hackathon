@@ -17,7 +17,8 @@ import {
   FileQuestion,
   ShieldCheck,
   Users,
-  CalendarClock,
+  UserPlus,
+  Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ModeToggle } from "@/components/mode-toggle";
@@ -49,7 +50,9 @@ const navItems: NavItem[] = [
   // Admin console
   { name: "Admin Home", href: "/dashboard/admin", icon: ShieldCheck, badge: "Admin", roles: ["admin"], exact: true },
   { name: "Accounts", href: "/dashboard/admin/users", icon: Users, badge: "Admin", roles: ["admin"] },
-  { name: "Session", href: "/dashboard/admin/session", icon: CalendarClock, badge: "Admin", roles: ["admin"] },
+  { name: "Courses", href: "/dashboard/admin/courses", icon: BookOpen, badge: "Admin", roles: ["admin"] },
+  { name: "Enrollments", href: "/dashboard/admin/enrollments", icon: UserPlus, badge: "Admin", roles: ["admin"] },
+  { name: "Settings", href: "/dashboard/admin/settings", icon: Settings, badge: "Admin", roles: ["admin"] },
   // Student portal
   { name: "Overview & Profile", href: "/dashboard/student", icon: LayoutDashboard, badge: "Student", roles: ["student"], exact: true },
   { name: "Exam Marks & Grades", href: "/dashboard/student/grades", icon: FileCheck, badge: "Student", roles: ["student"] },
