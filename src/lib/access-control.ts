@@ -7,10 +7,13 @@ import type { DbRole } from "./auth-roles";
  *  - student: grade disputes only (submit/track)
  */
 export const ROUTE_ACCESS: { prefix: string; roles: DbRole[] }[] = [
+  { prefix: "/dashboard/faculty", roles: ["admin", "faculty"] },
   { prefix: "/exam-quality", roles: ["admin", "faculty"] },
   { prefix: "/grading-consistency", roles: ["admin", "faculty"] },
   { prefix: "/grade-disputes", roles: ["admin", "faculty", "student"] },
   { prefix: "/copilot-chat", roles: ["admin", "faculty"] },
+  // Faculty must never reach student evaluation records.
+  { prefix: "/evaluations", roles: ["admin", "student"] },
 ];
 
 /** Where each role lands after login (and where forbidden access is redirected). */

@@ -8,10 +8,12 @@ type CookieOptions = Parameters<NextResponse["cookies"]["set"]>[2];
 
 // Feature tools that require an authenticated session.
 const PROTECTED_PREFIXES = [
+  "/dashboard",
   "/exam-quality",
   "/grading-consistency",
   "/grade-disputes",
   "/copilot-chat",
+  "/evaluations",
 ];
 
 export async function updateSession(request: NextRequest) {

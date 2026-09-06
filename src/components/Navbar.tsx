@@ -12,6 +12,8 @@ import {
   Menu,
   X,
   Sparkles,
+  BookOpen,
+  FileQuestion,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ModeToggle } from "@/components/mode-toggle";
@@ -23,6 +25,18 @@ import type { DbRole } from "@/lib/auth-roles";
 import { FacultyChatbot } from "@/components/FacultyChatbot";
 
 const navItems = [
+  {
+    name: "My Courses & Students",
+    href: "/dashboard/faculty/courses",
+    icon: BookOpen,
+    badge: "Faculty",
+  },
+  {
+    name: "Exam Questions & Archive",
+    href: "/dashboard/faculty/questions",
+    icon: FileQuestion,
+    badge: "Faculty",
+  },
   {
     name: "Exam Quality",
     href: "/exam-quality",
