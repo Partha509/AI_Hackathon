@@ -51,6 +51,12 @@ export default async function StudentCoursesPage() {
 
         {/* Status pill */}
         <div className="flex items-center gap-2">
+          <Button asChild variant="outline" size="sm" className="h-auto py-2.5">
+            <Link href="/dashboard/student/evaluations" className="flex items-center gap-1.5">
+              <Layers className="h-4 w-4" />
+              Faculty Evaluations
+            </Link>
+          </Button>
           <div className="rounded-xl border border-border/80 bg-card px-4 py-2.5 shadow-xs text-center">
             <span className="text-[11px] uppercase tracking-wider text-muted-foreground font-semibold block">
               Academic Standing

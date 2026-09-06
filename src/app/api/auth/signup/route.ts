@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
-const ALLOWED_ROLES = ["faculty", "student"] as const;
+// Faculty accounts are admin-created via invite only — never self-registered.
+const ALLOWED_ROLES = ["student"] as const;
 
 export async function POST(request: Request) {
   let body: {

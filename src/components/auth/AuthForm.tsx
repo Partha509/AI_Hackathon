@@ -113,7 +113,26 @@ export function AuthForm({ role, mode }: AuthFormProps) {
         email: data.email,
         password: data.password,
       });
-      if (error) throw error;
+      if (error) {
+        // If the account exists but hasn't completed invite setup, guide them.
+        try {
+          const res = await fetch("/api/auth/account-status", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email: data.email }),
+          });
+          const json = await res.json();
+          if (json?.pending) {
+            toast.error(
+              "Your account setup isn't complete. Please use the invite link sent to your email to set your password."
+            );
+            return;
+          }
+        } catch {
+          // fall through to the generic error below
+        }
+        throw error;
+      }
 
       // Enforce that the account's role matches the role being signed into.
       const { data: profile } = await supabase
