@@ -22,12 +22,12 @@ ALTER TABLE public.profiles ADD CONSTRAINT profiles_current_semester_chk
 -- 2. APP SETTINGS: single-row table holding the current academic session
 CREATE TABLE IF NOT EXISTS public.app_settings (
   id INT PRIMARY KEY DEFAULT 1,
-  current_session TEXT NOT NULL DEFAULT 'Spring 2025',
+  current_session TEXT NOT NULL DEFAULT 'Fall-25',
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   CONSTRAINT app_settings_singleton CHECK (id = 1)
 );
 INSERT INTO public.app_settings (id, current_session)
-  VALUES (1, 'Spring 2025')
+  VALUES (1, 'Fall-25')
   ON CONFLICT (id) DO NOTHING;
 
 ALTER TABLE public.app_settings ENABLE ROW LEVEL SECURITY;
