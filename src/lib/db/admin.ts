@@ -2,6 +2,7 @@ import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { SUPABASE_URL } from "@/lib/supabase/config";
 import { nextSemester, type Semester } from "@/lib/semester";
+import { nextSessionName } from "@/lib/session";
 import type {
   AdminUserRow,
   AdvanceSessionResult,
@@ -99,10 +100,19 @@ export async function createInvitedUser(input: CreateUserInput): Promise<CreateU
 
 /**
  * Advances all active students one semester (4.2 → graduated/inactive) and
- * records the new session name.
+ * moves the academic session forward (Fall-25 → Spring-26 → …). An explicit
+ * name can be supplied to override the computed next session.
  */
-export async function advanceSession(newSession: string): Promise<AdvanceSessionResult> {
+export async function advanceSession(override?: string): Promise<AdvanceSessionResult> {
   const admin = createAdminClient();
+
+  const { data: settings } = await admin
+    .from("app_settings")
+    .select("current_session")
+    .eq("id", 1)
+    .single();
+  const current = settings?.current_session ?? "Fall-25";
+  const newSession = override?.trim() || nextSessionName(current);
 
   const { data: students, error } = await admin
     .from("profiles")

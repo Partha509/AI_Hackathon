@@ -5,9 +5,8 @@ import { toast } from "sonner";
 import { AlertTriangle, CalendarClock, Loader2, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import { nextSessionName } from "@/lib/session";
 import type { AdvanceSessionResult, AppSettings } from "@/lib/supabase/types";
 
 export function SessionPanel() {
@@ -38,18 +37,12 @@ export function SessionPanel() {
 
   async function advance(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const form = new FormData(e.currentTarget);
-    const newSession = String(form.get("newSession") ?? "").trim();
-    if (!newSession) {
-      toast.error("Enter the new session name.");
-      return;
-    }
     setAdvancing(true);
     try {
       const res = await fetch("/api/admin/session", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ newSession }),
+        body: JSON.stringify({}),
       });
       const json = await res.json();
       if (!res.ok || !json.ok) throw new Error(json.error ?? "Failed to advance.");
@@ -100,12 +93,12 @@ export function SessionPanel() {
               <form onSubmit={advance} className="space-y-3 rounded-lg border border-border p-4">
                 <p className="text-sm text-muted-foreground">
                   This advances <span className="font-medium text-foreground">all active students</span> one
-                  semester (4.2 graduates). This cannot be undone.
+                  semester (4.2 graduates) and moves the session to{" "}
+                  <span className="font-semibold text-foreground">
+                    {nextSessionName(settings?.current_session ?? "Fall-25")}
+                  </span>
+                  . This cannot be undone.
                 </p>
-                <div className="space-y-1.5">
-                  <Label htmlFor="newSession">New session name</Label>
-                  <Input id="newSession" name="newSession" placeholder="Fall 2025" required />
-                </div>
                 <div className="flex gap-2">
                   <Button type="submit" disabled={advancing}>
                     {advancing && <Loader2 className="h-4 w-4 animate-spin" />}
