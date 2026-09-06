@@ -14,8 +14,9 @@ import {
   Sparkles,
   LayoutDashboard,
   BookOpen,
-  Users,
+  FileQuestion,
   ShieldCheck,
+  Users,
   UserPlus,
   Settings,
 } from "lucide-react";
@@ -24,80 +25,45 @@ import { ModeToggle } from "@/components/mode-toggle";
 import { Button } from "@/components/ui/button";
 import { AuthButton } from "@/components/auth/AuthButton";
 import { createClient } from "@/lib/supabase/client";
-import { canAccess } from "@/lib/access-control";
 import type { DbRole } from "@/lib/auth-roles";
+import { FacultyChatbot } from "@/components/FacultyChatbot";
 
-const standardNavItems = [
-  {
-    name: "Course Registration",
-    href: "/dashboard/student/courses",
-    icon: BookOpen,
-    badge: "Enrollment",
-  },
-  {
-    name: "Exam Quality",
-    href: "/exam-quality",
-    icon: FileCheck,
-    badge: "Tier 1",
-  },
-  {
-    name: "Grading Consistency",
-    href: "/grading-consistency",
-    icon: Scale,
-    badge: "Tier 1",
-  },
-  {
-    name: "Grade Disputes",
-    href: "/grade-disputes",
-    icon: AlertTriangle,
-    badge: "Tier 1",
-  },
-  {
-    name: "Co-Pilot Chat",
-    href: "/copilot-chat",
-    icon: Bot,
-    badge: "Front-Door",
-  },
-];
+type NavItem = {
+  name: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  badge: string;
+  roles: DbRole[];
+  exact?: boolean;
+};
 
-const adminNavItems = [
-  {
-    name: "Overview",
-    href: "/dashboard/admin",
-    icon: LayoutDashboard,
-    badge: "Overview",
-  },
-  {
-    name: "Courses",
-    href: "/dashboard/admin/courses",
-    icon: BookOpen,
-    badge: "Courses",
-  },
-  {
-    name: "Enrollments",
-    href: "/dashboard/admin/enrollments",
-    icon: Users,
-    badge: "Enrollments",
-  },
-  {
-    name: "User Provisioning",
-    href: "/dashboard/admin/users",
-    icon: UserPlus,
-    badge: "Users",
-  },
-  {
-    name: "Session Settings",
-    href: "/dashboard/admin/settings",
-    icon: Settings,
-    badge: "Settings",
-  },
+const navItems: NavItem[] = [
+  // Faculty portal
+  { name: "Overview & Profile", href: "/dashboard/faculty", icon: LayoutDashboard, badge: "Faculty", roles: ["faculty"], exact: true },
+  { name: "My Courses & Students", href: "/dashboard/faculty/courses", icon: BookOpen, badge: "Faculty", roles: ["faculty"] },
+  { name: "Exam Questions & Archive", href: "/dashboard/faculty/questions", icon: FileQuestion, badge: "Faculty", roles: ["faculty"] },
+  // Faculty tools
+  { name: "Exam Quality", href: "/exam-quality", icon: FileCheck, badge: "Tier 1", roles: ["faculty"] },
+  { name: "Grading Consistency", href: "/grading-consistency", icon: Scale, badge: "Tier 1", roles: ["faculty"] },
+  { name: "Grade Disputes", href: "/grade-disputes", icon: AlertTriangle, badge: "Tier 1", roles: ["faculty"] },
+  { name: "Co-Pilot Chat", href: "/copilot-chat", icon: Bot, badge: "Front-Door", roles: ["faculty"] },
+  // Admin console
+  { name: "Admin Home", href: "/dashboard/admin", icon: ShieldCheck, badge: "Admin", roles: ["admin"], exact: true },
+  { name: "Accounts", href: "/dashboard/admin/users", icon: Users, badge: "Admin", roles: ["admin"] },
+  { name: "Courses", href: "/dashboard/admin/courses", icon: BookOpen, badge: "Admin", roles: ["admin"] },
+  { name: "Enrollments", href: "/dashboard/admin/enrollments", icon: UserPlus, badge: "Admin", roles: ["admin"] },
+  { name: "Settings", href: "/dashboard/admin/settings", icon: Settings, badge: "Admin", roles: ["admin"] },
+  // Student portal
+  { name: "Overview & Profile", href: "/dashboard/student", icon: LayoutDashboard, badge: "Student", roles: ["student"], exact: true },
+  { name: "Exam Marks & Grades", href: "/dashboard/student/grades", icon: FileCheck, badge: "Student", roles: ["student"] },
+  { name: "Course Applications", href: "/dashboard/student/courses", icon: BookOpen, badge: "Student", roles: ["student"] },
 ];
 
 export function Navbar() {
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
   const [role, setRole] = React.useState<DbRole | null>(null);
-  const [fullName, setFullName] = React.useState<string | null>(null);
+  const [identity, setIdentity] = React.useState<{ name: string; department: string } | null>(null);
 
   React.useEffect(() => {
     const supabase = createClient();
@@ -108,16 +74,18 @@ export function Navbar() {
       } = await supabase.auth.getUser();
       if (!user) {
         setRole(null);
-        setFullName(null);
+        setIdentity(null);
         return;
       }
       const { data } = await supabase
         .from("profiles")
-        .select("role, full_name")
+        .select("role, full_name, department")
         .eq("id", user.id)
         .single();
       setRole((data?.role as DbRole) ?? null);
-      setFullName(data?.full_name ?? user.email?.split("@")[0] ?? "Administrator");
+      setIdentity(
+        data ? { name: data.full_name as string, department: (data.department as string) ?? "CSE" } : null
+      );
     }
 
     loadRole();
@@ -125,13 +93,10 @@ export function Navbar() {
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  // Determine which navigation items to show based on role
-  const visibleNavItems =
-    role === "admin"
-      ? adminNavItems
-      : role
-      ? standardNavItems.filter((item) => canAccess(role, item.href))
-      : [];
+  // Only show nav links intended for the current role.
+  const visibleNavItems = role
+    ? navItems.filter((item) => item.roles.includes(role))
+    : [];
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/80 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -165,9 +130,10 @@ export function Navbar() {
         <nav className="hidden md:flex items-center gap-1 lg:gap-2">
           {visibleNavItems.map((item) => {
             const Icon = item.icon;
-            const isActive =
-              pathname === item.href ||
-              (item.href !== "/" && pathname.startsWith(item.href));
+            const isActive = item.exact
+              ? pathname === item.href
+              : pathname === item.href ||
+                (item.href !== "/" && pathname.startsWith(item.href));
 
             return (
               <Link
@@ -190,17 +156,16 @@ export function Navbar() {
           })}
         </nav>
 
-        {/* Right Action Cluster: Admin Identity Badge + Theme Toggle + Auth */}
+        {/* Right Action Cluster: Theme Toggle + Status */}
         <div className="flex items-center gap-2">
-          {/* Admin Identity Badge */}
-          {role === "admin" && (
-            <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-accent/15 text-accent-foreground dark:text-amber-300 border border-accent/30 text-xs font-semibold">
-              <ShieldCheck className="h-3.5 w-3.5 text-accent" />
-              <span>Admin: {fullName || "System Administrator"} (System Administrator)</span>
+          {role === "student" && identity ? (
+            <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-primary/10 text-primary border border-primary/20 text-xs font-medium">
+              <GraduationCap className="h-3.5 w-3.5" />
+              <span>
+                Student: {identity.name} ({identity.department})
+              </span>
             </div>
-          )}
-
-          {role !== "admin" && (
+          ) : (
             <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-secondary/15 text-secondary border border-secondary/30 text-xs font-medium">
               <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
               Live Co-Pilot
@@ -234,14 +199,7 @@ export function Navbar() {
           <div className="flex flex-col gap-1">
             <div className="mb-2 px-2 py-1 flex items-center justify-between text-xs text-muted-foreground border-b border-border/50 pb-2">
               <span>AUST CSE Carnival 8.0</span>
-              {role === "admin" ? (
-                <span className="font-semibold text-accent flex items-center gap-1">
-                  <ShieldCheck className="h-3.5 w-3.5" />
-                  Admin: {fullName}
-                </span>
-              ) : (
-                <span className="font-semibold text-accent">Final Round</span>
-              )}
+              <span className="font-semibold text-accent">Final Round</span>
             </div>
             {visibleNavItems.map((item) => {
               const Icon = item.icon;
@@ -275,6 +233,9 @@ export function Navbar() {
           </div>
         </div>
       )}
+
+      {/* Persistent AI Co-Pilot drawer (floating trigger + slide-over) */}
+      <FacultyChatbot />
     </header>
   );
 }

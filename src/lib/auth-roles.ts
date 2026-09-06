@@ -39,7 +39,7 @@ export const ROLES: Record<RoleKey, RoleConfig> = {
     accentBg: "bg-primary/10 border-primary/20",
     accentRing: "focus-visible:ring-primary",
     allowSignup: true,
-    landingHref: "/copilot-chat",
+    landingHref: "/dashboard/faculty",
     highlights: [
       "Exam question quality & repetition checks",
       "Multi-grader consistency analysis",
@@ -58,7 +58,7 @@ export const ROLES: Record<RoleKey, RoleConfig> = {
     accentBg: "bg-secondary/10 border-secondary/20",
     accentRing: "focus-visible:ring-secondary",
     allowSignup: true,
-    landingHref: "/grade-disputes",
+    landingHref: "/dashboard/student",
     highlights: [
       "File and track regrade petitions",
       "See rubric-based reasoning",
