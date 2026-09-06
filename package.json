@@ -10,6 +10,7 @@
     "seed:admin": "node --env-file=.env scripts/seed-admin.mjs",
     "seed:student": "node --env-file=.env scripts/seed-student.mjs",
     "seed:demo": "node --env-file=.env scripts/seed-demo.mjs",
+    "seed:questions": "node --env-file=.env scripts/seed-questions.mjs",
     "migrate": "node --env-file=.env scripts/migrate.mjs"
   },
   "dependencies": {
