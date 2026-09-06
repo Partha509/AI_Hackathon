@@ -19,7 +19,7 @@ export const ROUTE_ACCESS: { prefix: string; roles: DbRole[] }[] = [
 /** Where each role lands after login (and where forbidden access is redirected). */
 export const ROLE_HOME: Record<DbRole, string> = {
   admin: "/",
-  faculty: "/copilot-chat",
+  faculty: "/dashboard/faculty",
   student: "/grade-disputes",
 };
 
