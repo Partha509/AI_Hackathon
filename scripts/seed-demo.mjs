@@ -2,7 +2,6 @@
 // enrollments (course_applications). Idempotent. Requires admin_student_system.sql.
 // Run with: npm run seed:demo
 import { createClient } from "@supabase/supabase-js";
-import { randomUUID } from "node:crypto";
 
 const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_SECRET_KEY;
@@ -94,7 +93,6 @@ async function main() {
   // 2. Teachers (faculty profiles, no auth login needed)
   for (const [full_name, email, department] of TEACHERS) {
     await upsertProfileByEmail({
-      id: randomUUID(),
       email,
       full_name,
       role: "faculty",
@@ -108,7 +106,6 @@ async function main() {
   // 3. Students (data-only)
   for (const [full_name, email, student_id, current_semester] of STUDENTS) {
     await upsertProfileByEmail({
-      id: randomUUID(),
       email,
       full_name,
       role: "student",

@@ -27,14 +27,8 @@ export async function POST(request: Request) {
 
     const body = await request.json().catch(() => ({}));
     const { newSession } = body as { newSession?: string };
-    if (!newSession?.trim()) {
-      return NextResponse.json(
-        { ok: false, error: "newSession name is required." },
-        { status: 400 }
-      );
-    }
-
-    const data = await advanceSession(newSession.trim());
+    // newSession is optional — advanceSession auto-computes the next name.
+    const data = await advanceSession(typeof newSession === "string" ? newSession : undefined);
     return NextResponse.json({ ok: true, data });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unexpected error.";
