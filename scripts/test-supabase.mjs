@@ -13,7 +13,18 @@ if (!url || !key) {
 const supabase = createClient(url, key);
 
 async function checkTables() {
-  const tables = ["courses", "syllabi", "exams", "exam_questions", "answer_scripts", "grades", "grade_requests", "chat_logs"];
+  const tables = [
+    "profiles",
+    "courses",
+    "course_enrollments",
+    "syllabi",
+    "exams",
+    "exam_questions",
+    "answer_scripts",
+    "grades",
+    "grade_requests",
+    "chat_logs"
+  ];
   console.log("\n--- Checking Supabase Tables ---");
 
   for (const table of tables) {
