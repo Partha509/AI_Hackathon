@@ -60,9 +60,11 @@ export async function updateSession(request: NextRequest) {
   // Role-based access + invite completion gate for signed-in users.
   const allowed = allowedRolesForPath(pathname);
   if (user) {
+    // select("*") tolerates optional columns (e.g. must_change_password) that may
+    // not exist until the admin/student migration is applied — avoids locking out auth.
     const { data: profile } = await supabase
       .from("profiles")
-      .select("role, must_change_password")
+      .select("*")
       .eq("id", user.id)
       .single();
 
