@@ -7,11 +7,16 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "seed:admin": "node --env-file=.env.local scripts/seed-admin.mjs"
+    "seed:admin": "node --env-file=.env scripts/seed-admin.mjs",
+    "seed:student": "node --env-file=.env scripts/seed-student.mjs",
+    "seed:demo": "node --env-file=.env scripts/seed-demo.mjs"
   },
   "dependencies": {
     "@google/genai": "^2.21.0",
+    "@radix-ui/react-dialog": "^1.1.23",
+    "@radix-ui/react-select": "^2.3.7",
     "@radix-ui/react-slot": "^1.1.2",
+    "@radix-ui/react-tabs": "^1.1.21",
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.48.1",
     "class-variance-authority": "^0.7.1",

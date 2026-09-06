@@ -63,6 +63,18 @@ export default function ExamQualityPage() {
   const [isLoading, setIsLoading] = React.useState(false);
   const [result, setResult] = React.useState<InspectionResult | null>(null);
 
+  // Prefill questions handed off from the faculty question archive.
+  React.useEffect(() => {
+    const prefill = window.sessionStorage.getItem("facultyos:prefill-exam");
+    if (prefill) {
+      setDraft(prefill);
+      window.sessionStorage.removeItem("facultyos:prefill-exam");
+      toast.info("Questions loaded from your archive", {
+        description: "Review and run the inspector when ready.",
+      });
+    }
+  }, []);
+
   const questionLines = React.useMemo(
     () => draft.split("\n").map((l) => l.trim()).filter(Boolean),
     [draft]
