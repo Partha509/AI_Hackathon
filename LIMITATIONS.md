@@ -19,6 +19,17 @@ Format: `- **[T<id> · P<n>]** <limitation> — <impact> — <fix if we had time
 ## P2 — Supabase & backend
 <!-- append here -->
 
+## Student Portal
+- **[Student]** `course_applications` table must be created once via `supabase/course_applications.sql` (DDL can't run through API keys). Overview/catalog tolerate its absence; the Apply action fails until it exists.
+- **[Student]** Grades map a student to `answer_scripts` by **full name** (schema has no student_id on scripts). The demo student is named "Sabbir Ahmed" to match seed data; name collisions would mismatch. A `student_id` FK on `answer_scripts` would be more robust.
+- **[Student]** Approving course applications (admin side) isn't built yet — applications stay `pending`. Admins would flip status to approved/rejected.
+
+## Admin / Accounts / Sessions
+- **[Admin]** Requires `supabase/admin_student_system.sql` (adds profile columns `student_id`/`current_semester`/`must_change_password`/`is_active`, `app_settings`, `course_applications`). Nothing in the admin/session/semester features works until it's run.
+- **[Admin]** Invite emails auto-send only if Supabase SMTP is configured. Without SMTP, the admin UI shows a copyable invite link (from `generateLink`) to share manually.
+- **[Admin]** Session advancement moves **all** active students one semester unconditionally (no pass/fail check); 4.2 students are marked inactive (graduated). It's irreversible.
+- **[Admin]** Course→semester is derived from the first two digits of the course code; codes that don't encode a valid semester (1.1–4.2) are treated as not-applicable.
+
 ## Auth (Supabase)
 - **[Auth]** Teacher/student self-signup requires "Confirm email" to be OFF in Supabase Auth settings for instant demo login; otherwise users must confirm via email before signing in.
 - **[Auth]** Role is enforced at login by comparing `profiles.role` to the selected role; a mismatched account is signed out with an error. There is no server-side role guard on individual feature routes yet (middleware only checks that a session exists).
