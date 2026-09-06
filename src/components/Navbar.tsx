@@ -12,6 +12,10 @@ import {
   Menu,
   X,
   Sparkles,
+  LayoutDashboard,
+  BookOpen,
+  Users,
+  ShieldCheck,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ModeToggle } from "@/components/mode-toggle";
@@ -21,7 +25,7 @@ import { createClient } from "@/lib/supabase/client";
 import { canAccess } from "@/lib/access-control";
 import type { DbRole } from "@/lib/auth-roles";
 
-const navItems = [
+const standardNavItems = [
   {
     name: "Exam Quality",
     href: "/exam-quality",
@@ -48,10 +52,32 @@ const navItems = [
   },
 ];
 
+const adminNavItems = [
+  {
+    name: "Admin Overview",
+    href: "/dashboard/admin",
+    icon: LayoutDashboard,
+    badge: "Overview",
+  },
+  {
+    name: "Course & Faculty Management",
+    href: "/dashboard/admin/courses",
+    icon: BookOpen,
+    badge: "Courses",
+  },
+  {
+    name: "Enrollment & Applications",
+    href: "/dashboard/admin/enrollments",
+    icon: Users,
+    badge: "Enrollments",
+  },
+];
+
 export function Navbar() {
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = React.useState(false);
   const [role, setRole] = React.useState<DbRole | null>(null);
+  const [fullName, setFullName] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     const supabase = createClient();
@@ -62,14 +88,16 @@ export function Navbar() {
       } = await supabase.auth.getUser();
       if (!user) {
         setRole(null);
+        setFullName(null);
         return;
       }
       const { data } = await supabase
         .from("profiles")
-        .select("role")
+        .select("role, full_name")
         .eq("id", user.id)
         .single();
       setRole((data?.role as DbRole) ?? null);
+      setFullName(data?.full_name ?? user.email?.split("@")[0] ?? "Administrator");
     }
 
     loadRole();
@@ -77,10 +105,13 @@ export function Navbar() {
     return () => sub.subscription.unsubscribe();
   }, []);
 
-  // Only show feature links the current role is allowed to reach.
-  const visibleNavItems = role
-    ? navItems.filter((item) => canAccess(role, item.href))
-    : [];
+  // Determine which navigation items to show based on role
+  const visibleNavItems =
+    role === "admin"
+      ? adminNavItems
+      : role
+      ? standardNavItems.filter((item) => canAccess(role, item.href))
+      : [];
 
   return (
     <header className="sticky top-0 z-50 w-full border-b border-border/80 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -139,12 +170,22 @@ export function Navbar() {
           })}
         </nav>
 
-        {/* Right Action Cluster: Theme Toggle + Status */}
+        {/* Right Action Cluster: Admin Identity Badge + Theme Toggle + Auth */}
         <div className="flex items-center gap-2">
-          <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-secondary/15 text-secondary border border-secondary/30 text-xs font-medium">
-            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-            Live Co-Pilot
-          </div>
+          {/* Admin Identity Badge */}
+          {role === "admin" && (
+            <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-accent/15 text-accent-foreground dark:text-amber-300 border border-accent/30 text-xs font-semibold">
+              <ShieldCheck className="h-3.5 w-3.5 text-accent" />
+              <span>Admin: {fullName || "System Administrator"} (System Administrator)</span>
+            </div>
+          )}
+
+          {role !== "admin" && (
+            <div className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-secondary/15 text-secondary border border-secondary/30 text-xs font-medium">
+              <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+              Live Co-Pilot
+            </div>
+          )}
 
           <ModeToggle />
 
@@ -173,7 +214,14 @@ export function Navbar() {
           <div className="flex flex-col gap-1">
             <div className="mb-2 px-2 py-1 flex items-center justify-between text-xs text-muted-foreground border-b border-border/50 pb-2">
               <span>AUST CSE Carnival 8.0</span>
-              <span className="font-semibold text-accent">Final Round</span>
+              {role === "admin" ? (
+                <span className="font-semibold text-accent flex items-center gap-1">
+                  <ShieldCheck className="h-3.5 w-3.5" />
+                  Admin: {fullName}
+                </span>
+              ) : (
+                <span className="font-semibold text-accent">Final Round</span>
+              )}
             </div>
             {visibleNavItems.map((item) => {
               const Icon = item.icon;

@@ -21,6 +21,9 @@ export interface Course {
   code: string;
   title: string;
   faculty_name?: string;
+  faculty_id?: string;
+  description?: string;
+  department?: string;
   assigned_faculty?: {
     faculty_id?: string;
     name: string;
@@ -35,12 +38,23 @@ export interface Course {
     semester?: string;
     status?: string;
   }[];
-  learning_objectives: {
+  learning_objectives?: {
     clo: string;
     description: string;
     blooms_level: string;
   }[];
   created_at: string;
+}
+
+export interface CourseApplication {
+  id: string;
+  student_id: string;
+  course_id: string;
+  status: "pending" | "approved" | "rejected";
+  applied_at: string;
+  reviewed_at?: string | null;
+  profiles?: Profile;
+  courses?: Course;
 }
 
 export interface CourseEnrollment {
