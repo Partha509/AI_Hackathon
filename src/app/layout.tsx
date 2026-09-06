@@ -21,6 +21,9 @@ export const metadata: Metadata = {
   title: "FacultyOS | AI-Powered Academic Co-Pilot",
   description:
     "Decision-support co-pilot for university faculty. Exam quality evaluation, multi-grader consistency checking, and student grade dispute advisory.",
+  other: {
+    "darkreader-lock": "true",
+  },
 };
 
 export default function RootLayout({
@@ -30,7 +33,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
+      <head>
+        <meta name="darkreader-lock" content="true" />
+      </head>
       <body
+        suppressHydrationWarning
         className={`${inter.variable} ${spaceGrotesk.variable} font-sans antialiased min-h-screen bg-background text-foreground flex flex-col`}
       >
         <ThemeProvider
