@@ -8,6 +8,8 @@ import {
   ShieldCheck,
   AlertCircle,
   Sparkles,
+  UserPlus,
+  Settings,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -67,7 +69,7 @@ export default async function AdminOverviewPage() {
             System Administrator Overview
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Department curriculum management, faculty instructor assignments, and student enrollment arbitration.
+            Department curriculum management, faculty instructor assignments, student provisioning, and enrollment arbitration.
           </p>
         </div>
 
@@ -81,7 +83,19 @@ export default async function AdminOverviewPage() {
           <Button asChild variant="outline" size="sm" className="gap-1.5">
             <Link href="/dashboard/admin/enrollments">
               <ClipboardList className="h-4 w-4 text-accent" />
-              <span>Review Applications ({metrics.pendingApplications})</span>
+              <span>Review Petitions ({metrics.pendingApplications})</span>
+            </Link>
+          </Button>
+          <Button asChild variant="outline" size="sm" className="gap-1.5">
+            <Link href="/dashboard/admin/users">
+              <UserPlus className="h-4 w-4 text-primary" />
+              <span>Provision Accounts</span>
+            </Link>
+          </Button>
+          <Button asChild variant="ghost" size="sm" className="gap-1.5">
+            <Link href="/dashboard/admin/settings">
+              <Settings className="h-4 w-4 text-muted-foreground" />
+              <span>Session Settings</span>
             </Link>
           </Button>
         </div>

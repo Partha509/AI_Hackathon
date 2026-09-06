@@ -8,6 +8,7 @@ import type { DbRole } from "./auth-roles";
  */
 export const ROUTE_ACCESS: { prefix: string; roles: DbRole[] }[] = [
   { prefix: "/dashboard/admin", roles: ["admin"] },
+  { prefix: "/dashboard/student", roles: ["admin", "student"] },
   { prefix: "/exam-quality", roles: ["admin", "faculty"] },
   { prefix: "/grading-consistency", roles: ["admin", "faculty"] },
   { prefix: "/grade-disputes", roles: ["admin", "faculty", "student"] },

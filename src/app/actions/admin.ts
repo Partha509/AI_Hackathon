@@ -660,3 +660,316 @@ export async function revokeEnrollmentAction(
     return { success: false, error: err.message || "Failed to revoke enrollment" };
   }
 }
+
+// ---------------------------------------------------------------------------
+// 5. User Provisioning (Faculty & Student Management)
+// ---------------------------------------------------------------------------
+export async function getAllUsersAction(): Promise<{
+  success: boolean;
+  users: Profile[];
+  error?: string;
+}> {
+  const supabase = createAdminClient();
+
+  try {
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    return { success: true, users: (data || []) as Profile[] };
+  } catch (err: any) {
+    return { success: false, users: [], error: err.message };
+  }
+}
+
+export async function provisionFacultyAction(payload: {
+  fullName: string;
+  email: string;
+  department: string;
+  tempPassword?: string;
+}) {
+  const supabase = createAdminClient();
+  const email = payload.email.trim().toLowerCase();
+  const fullName = payload.fullName.trim();
+  const department = payload.department.trim() || "CSE";
+  const tempPassword = payload.tempPassword?.trim() || "Aust1234!";
+
+  try {
+    // 1. Create or get Supabase Auth user
+    let userId: string | null = null;
+
+    const { data: createData, error: createError } =
+      await supabase.auth.admin.createUser({
+        email,
+        password: tempPassword,
+        email_confirm: true,
+        user_metadata: {
+          full_name: fullName,
+          role: "faculty",
+          department,
+        },
+      });
+
+    if (createError) {
+      // If user already exists in auth, find user ID
+      const { data: listData } = await supabase.auth.admin.listUsers();
+      const existing = listData?.users?.find(
+        (u) => u.email?.toLowerCase() === email
+      );
+      if (existing) {
+        userId = existing.id;
+      } else {
+        throw new Error(createError.message);
+      }
+    } else if (createData?.user) {
+      userId = createData.user.id;
+    }
+
+    if (!userId) throw new Error("Could not assign an authentication identity");
+
+    // 2. Insert or update public.profiles
+    const profilePayload: Record<string, any> = {
+      id: userId,
+      auth_user_id: userId,
+      email,
+      full_name: fullName,
+      role: "faculty",
+      department,
+    };
+
+    const { error: profileErr } = await supabase
+      .from("profiles")
+      .upsert(profilePayload, { onConflict: "id" });
+
+    if (profileErr) throw profileErr;
+
+    revalidatePath("/dashboard/admin");
+    revalidatePath("/dashboard/admin/users");
+    revalidatePath("/dashboard/admin/courses");
+
+    return {
+      success: true,
+      userId,
+      email,
+      fullName,
+      tempPassword,
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err.message || "Failed to provision faculty account",
+    };
+  }
+}
+
+export async function provisionStudentAction(payload: {
+  fullName: string;
+  email: string;
+  studentIdNumber: string;
+  initialSemester: string;
+  department?: string;
+  tempPassword?: string;
+}) {
+  const supabase = createAdminClient();
+  const email = payload.email.trim().toLowerCase();
+  const fullName = payload.fullName.trim();
+  const studentIdNumber = payload.studentIdNumber.trim();
+  const currentSemester = payload.initialSemester.trim();
+  const department = payload.department?.trim() || "CSE";
+  const tempPassword = payload.tempPassword?.trim() || "Aust1234!";
+
+  try {
+    // 1. Create or get Supabase Auth user
+    let userId: string | null = null;
+
+    const { data: createData, error: createError } =
+      await supabase.auth.admin.createUser({
+        email,
+        password: tempPassword,
+        email_confirm: true,
+        user_metadata: {
+          full_name: fullName,
+          role: "student",
+          department,
+          student_id_number: studentIdNumber,
+          current_semester: currentSemester,
+        },
+      });
+
+    if (createError) {
+      const { data: listData } = await supabase.auth.admin.listUsers();
+      const existing = listData?.users?.find(
+        (u) => u.email?.toLowerCase() === email
+      );
+      if (existing) {
+        userId = existing.id;
+      } else {
+        throw new Error(createError.message);
+      }
+    } else if (createData?.user) {
+      userId = createData.user.id;
+    }
+
+    if (!userId) throw new Error("Could not assign an authentication identity");
+
+    // 2. Insert or update public.profiles with student ID and semester
+    const profilePayload: Record<string, any> = {
+      id: userId,
+      auth_user_id: userId,
+      email,
+      full_name: fullName,
+      role: "student",
+      department,
+      student_id_number: studentIdNumber,
+      current_semester: currentSemester,
+    };
+
+    let { error: profileErr } = await supabase
+      .from("profiles")
+      .upsert(profilePayload, { onConflict: "id" });
+
+    // Fallback if migration columns not added yet
+    if (
+      profileErr &&
+      (profileErr.message.includes("student_id_number") ||
+        profileErr.message.includes("current_semester"))
+    ) {
+      delete profilePayload.student_id_number;
+      delete profilePayload.current_semester;
+      const fallback = await supabase
+        .from("profiles")
+        .upsert(profilePayload, { onConflict: "id" });
+      profileErr = fallback.error;
+    }
+
+    if (profileErr) throw profileErr;
+
+    revalidatePath("/dashboard/admin");
+    revalidatePath("/dashboard/admin/users");
+    revalidatePath("/dashboard/admin/enrollments");
+
+    return {
+      success: true,
+      userId,
+      email,
+      fullName,
+      studentIdNumber,
+      currentSemester,
+      tempPassword,
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err.message || "Failed to provision student account",
+    };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// 6. Global Academic Session & Auto-Promotion Settings
+// ---------------------------------------------------------------------------
+export async function getSystemSettingsAction(): Promise<{
+  success: boolean;
+  settings: { id: number; current_session: string };
+  error?: string;
+}> {
+  const supabase = createAdminClient();
+
+  try {
+    const { data, error } = await supabase
+      .from("system_settings")
+      .select("*")
+      .eq("id", 1)
+      .single();
+
+    if (error || !data) {
+      // Fallback default
+      return {
+        success: true,
+        settings: { id: 1, current_session: "Spring 2025" },
+      };
+    }
+
+    return { success: true, settings: data };
+  } catch (err: any) {
+    return {
+      success: true,
+      settings: { id: 1, current_session: "Spring 2025" },
+    };
+  }
+}
+
+export async function startNewSessionAction(newSessionName: string) {
+  const supabase = createAdminClient();
+  const sessionName = newSessionName.trim();
+
+  if (!sessionName) {
+    return { success: false, error: "New session name cannot be blank." };
+  }
+
+  try {
+    // 1. Update or upsert system_settings
+    try {
+      await supabase.from("system_settings").upsert(
+        {
+          id: 1,
+          current_session: sessionName,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "id" }
+      );
+    } catch {
+      // Ignore if table pending
+    }
+
+    // 2. Fetch all students
+    const { data: students, error: studentFetchErr } = await supabase
+      .from("profiles")
+      .select("id, current_semester, full_name, email")
+      .eq("role", "student");
+
+    if (studentFetchErr) throw studentFetchErr;
+
+    // 3. Promote each student logically: 1.1 -> 1.2, ..., 4.2 -> Graduated
+    let promotedCount = 0;
+    const { getNextSemester } = await import("@/lib/semester-utils");
+
+    for (const student of students || []) {
+      const nextSem = getNextSemester(student.current_semester || "1.1");
+
+      try {
+        const { error: updateErr } = await supabase
+          .from("profiles")
+          .update({
+            current_semester: nextSem,
+          })
+          .eq("id", student.id);
+
+        if (!updateErr) {
+          promotedCount++;
+        }
+      } catch {
+        // Continue with next student
+      }
+    }
+
+    revalidatePath("/dashboard/admin");
+    revalidatePath("/dashboard/admin/settings");
+    revalidatePath("/dashboard/admin/users");
+    revalidatePath("/dashboard/student/courses");
+
+    return {
+      success: true,
+      promotedCount,
+      newSession: sessionName,
+    };
+  } catch (err: any) {
+    return {
+      success: false,
+      error: err.message || "Failed to start new semester session",
+    };
+  }
+}
+

@@ -6,6 +6,17 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[];
 
+export type Semester =
+  | "1.1"
+  | "1.2"
+  | "2.1"
+  | "2.2"
+  | "3.1"
+  | "3.2"
+  | "4.1"
+  | "4.2"
+  | "Graduated";
+
 export interface Profile {
   id: string;
   auth_user_id?: string | null;
@@ -13,7 +24,15 @@ export interface Profile {
   full_name: string;
   role: "faculty" | "student" | "admin";
   department: string;
+  student_id_number?: string | null;
+  current_semester?: Semester | null;
   created_at: string;
+}
+
+export interface SystemSettings {
+  id: number;
+  current_session: string;
+  updated_at?: string;
 }
 
 export interface Course {

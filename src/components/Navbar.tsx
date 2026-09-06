@@ -16,6 +16,8 @@ import {
   BookOpen,
   Users,
   ShieldCheck,
+  UserPlus,
+  Settings,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { ModeToggle } from "@/components/mode-toggle";
@@ -26,6 +28,12 @@ import { canAccess } from "@/lib/access-control";
 import type { DbRole } from "@/lib/auth-roles";
 
 const standardNavItems = [
+  {
+    name: "Course Registration",
+    href: "/dashboard/student/courses",
+    icon: BookOpen,
+    badge: "Enrollment",
+  },
   {
     name: "Exam Quality",
     href: "/exam-quality",
@@ -54,22 +62,34 @@ const standardNavItems = [
 
 const adminNavItems = [
   {
-    name: "Admin Overview",
+    name: "Overview",
     href: "/dashboard/admin",
     icon: LayoutDashboard,
     badge: "Overview",
   },
   {
-    name: "Course & Faculty Management",
+    name: "Courses",
     href: "/dashboard/admin/courses",
     icon: BookOpen,
     badge: "Courses",
   },
   {
-    name: "Enrollment & Applications",
+    name: "Enrollments",
     href: "/dashboard/admin/enrollments",
     icon: Users,
     badge: "Enrollments",
+  },
+  {
+    name: "User Provisioning",
+    href: "/dashboard/admin/users",
+    icon: UserPlus,
+    badge: "Users",
+  },
+  {
+    name: "Session Settings",
+    href: "/dashboard/admin/settings",
+    icon: Settings,
+    badge: "Settings",
   },
 ];
 
