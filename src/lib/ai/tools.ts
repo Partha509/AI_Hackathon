@@ -7,6 +7,14 @@ import {
   findUsers,
   listCoursesDetailed,
 } from "@/lib/db/admin";
+import { addCourseQuestions, listCourseQuestions } from "@/lib/db/questions";
+import {
+  endCourse,
+  getEvaluationSummary,
+  listEvaluations,
+  submitFinalMarks,
+  type ActorContext,
+} from "@/lib/db/lifecycle";
 import { isSemester } from "@/lib/semester";
 
 type ToolFn = Groq.Chat.Completions.ChatCompletionTool;
@@ -97,13 +105,128 @@ export const CHAT_TOOLS: ToolFn[] = [
       },
     },
   },
+  {
+    type: "function",
+    function: {
+      name: "list_course_questions",
+      description:
+        "List a course's question bank — both previous-year (archived) questions and current ones. Use this to check for repetition before generating or saving new questions.",
+      parameters: {
+        type: "object",
+        properties: {
+          course_code: { type: "string", description: "e.g. 'CSE 3201'." },
+        },
+        required: ["course_code"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "add_course_questions",
+      description:
+        "Save one or more SHORT questions to a course's question bank. Call list_course_questions first to avoid duplicating existing/previous questions.",
+      parameters: {
+        type: "object",
+        properties: {
+          course_code: { type: "string", description: "e.g. 'CSE 3201'." },
+          source: {
+            type: "string",
+            enum: ["manual", "ai", "source_material"],
+            description: "'ai' when you generated them, 'source_material' when derived from provided text, else 'manual'.",
+          },
+          questions: {
+            type: "array",
+            description: "The short questions to save.",
+            items: {
+              type: "object",
+              properties: {
+                text: { type: "string" },
+                topic: { type: "string" },
+                marks: { type: "number", description: "Defaults to 5 (short question)." },
+              },
+              required: ["text"],
+            },
+          },
+        },
+        required: ["course_code", "questions"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "submit_final_marks",
+      description:
+        "Submit/update final marks (0–100) for enrolled students in a course. Faculty may only do this for their own ACTIVE course.",
+      parameters: {
+        type: "object",
+        properties: {
+          course_code: { type: "string" },
+          marks: {
+            type: "array",
+            items: {
+              type: "object",
+              properties: {
+                student: { type: "string", description: "Student name, email, or ID." },
+                marks: { type: "number" },
+                letter_grade: { type: "string" },
+              },
+              required: ["student", "marks"],
+            },
+          },
+        },
+        required: ["course_code", "marks"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "end_course",
+      description:
+        "End (deactivate) a course. Allowed only when ALL enrolled students have final marks AND all recheck requests are resolved. Once inactive, faculty lose access and students may submit anonymous evaluations.",
+      parameters: {
+        type: "object",
+        properties: { course_code: { type: "string" } },
+        required: ["course_code"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "get_evaluation_summary",
+      description:
+        "Get the AGGREGATE faculty-evaluation rating for a course (average + count only). Faculty see this for their own courses; never individual responses.",
+      parameters: {
+        type: "object",
+        properties: { course_code: { type: "string" } },
+        required: ["course_code"],
+      },
+    },
+  },
+  {
+    type: "function",
+    function: {
+      name: "list_evaluations",
+      description:
+        "ADMIN ONLY: list individual faculty-evaluation records (rating, comment, and which student submitted) for a course.",
+      parameters: {
+        type: "object",
+        properties: { course_code: { type: "string" } },
+        required: ["course_code"],
+      },
+    },
+  },
 ];
 
 type Args = Record<string, unknown>;
+export type ToolContext = { userId?: string | null; role?: string | null; fullName?: string | null };
 const str = (v: unknown) => (typeof v === "string" ? v : undefined);
 
 /** Executes a tool call and returns a JSON-serializable result. */
-export async function executeTool(name: string, args: Args): Promise<unknown> {
+export async function executeTool(name: string, args: Args, ctx?: ToolContext): Promise<unknown> {
   switch (name) {
     case "list_courses":
       return { courses: await listCoursesDetailed() };
@@ -158,7 +281,79 @@ export async function executeTool(name: string, args: Args): Promise<unknown> {
       return { enrolled: await enrollStudent({ student, course_code, status }) };
     }
 
+    case "list_course_questions": {
+      const course_code = str(args.course_code);
+      if (!course_code) return { error: "course_code is required." };
+      return await listCourseQuestions(course_code);
+    }
+
+    case "add_course_questions": {
+      const course_code = str(args.course_code);
+      const questions = Array.isArray(args.questions) ? args.questions : [];
+      if (!course_code || questions.length === 0) {
+        return { error: "course_code and a non-empty questions array are required." };
+      }
+      const parsed = questions
+        .map((q) => {
+          const item = q as Record<string, unknown>;
+          return { text: str(item.text) ?? "", topic: str(item.topic), marks: typeof item.marks === "number" ? item.marks : undefined };
+        })
+        .filter((q) => q.text.trim());
+      if (parsed.length === 0) return { error: "No valid question text provided." };
+      const source = str(args.source) as "manual" | "ai" | "source_material" | undefined;
+      return {
+        saved: await addCourseQuestions({
+          courseCode: course_code,
+          questions: parsed,
+          source: source ?? "ai",
+          createdBy: ctx?.userId ?? null,
+        }),
+      };
+    }
+
+    case "submit_final_marks": {
+      const course_code = str(args.course_code);
+      const marksArr = Array.isArray(args.marks) ? args.marks : [];
+      if (!course_code || marksArr.length === 0) {
+        return { error: "course_code and a non-empty marks array are required." };
+      }
+      const marks = marksArr
+        .map((m) => {
+          const item = m as Record<string, unknown>;
+          return {
+            student: str(item.student) ?? "",
+            marks: typeof item.marks === "number" ? item.marks : NaN,
+            letter_grade: str(item.letter_grade),
+          };
+        })
+        .filter((m) => m.student.trim() && !Number.isNaN(m.marks));
+      if (marks.length === 0) return { error: "No valid {student, marks} entries provided." };
+      return { result: await submitFinalMarks({ courseCode: course_code, marks, ctx: actor(ctx) }) };
+    }
+
+    case "end_course": {
+      const course_code = str(args.course_code);
+      if (!course_code) return { error: "course_code is required." };
+      return { result: await endCourse({ courseCode: course_code, ctx: actor(ctx) }) };
+    }
+
+    case "get_evaluation_summary": {
+      const course_code = str(args.course_code);
+      if (!course_code) return { error: "course_code is required." };
+      return { summary: await getEvaluationSummary({ courseCode: course_code, ctx: actor(ctx) }) };
+    }
+
+    case "list_evaluations": {
+      const course_code = str(args.course_code);
+      if (!course_code) return { error: "course_code is required." };
+      return await listEvaluations({ courseCode: course_code, ctx: actor(ctx) });
+    }
+
     default:
       return { error: `Unknown tool: ${name}` };
   }
+}
+
+function actor(ctx?: ToolContext): ActorContext {
+  return { userId: ctx?.userId ?? null, role: ctx?.role ?? null, fullName: ctx?.fullName ?? null };
 }

@@ -1,7 +1,7 @@
 import "server-only";
 import type Groq from "groq-sdk";
 import { getGroq, GROQ_MODEL } from "@/lib/ai/groq";
-import { CHAT_TOOLS, executeTool } from "@/lib/ai/tools";
+import { CHAT_TOOLS, executeTool, type ToolContext } from "@/lib/ai/tools";
 
 type ApiMessage = { role: "user" | "assistant"; content: string };
 
@@ -15,7 +15,8 @@ const MAX_ROUNDS = 5;
 /** Runs the faculty co-pilot with tool-calling until it produces a final answer. */
 export async function runFacultyAgent(
   system: string,
-  history: ApiMessage[]
+  history: ApiMessage[],
+  ctx?: ToolContext
 ): Promise<AgentResult> {
   const groq = getGroq();
   const messages: Groq.Chat.Completions.ChatCompletionMessageParam[] = [
@@ -58,7 +59,7 @@ export async function runFacultyAgent(
       }
       let result: unknown;
       try {
-        result = await executeTool(call.function.name, args);
+        result = await executeTool(call.function.name, args, ctx);
       } catch (err) {
         result = { error: err instanceof Error ? err.message : "Tool failed." };
       }

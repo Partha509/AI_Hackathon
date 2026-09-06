@@ -38,7 +38,7 @@ export const ROLES: Record<RoleKey, RoleConfig> = {
     accentText: "text-primary",
     accentBg: "bg-primary/10 border-primary/20",
     accentRing: "focus-visible:ring-primary",
-    allowSignup: true,
+    allowSignup: false,
     landingHref: "/dashboard/faculty",
     highlights: [
       "Exam question quality & repetition checks",
