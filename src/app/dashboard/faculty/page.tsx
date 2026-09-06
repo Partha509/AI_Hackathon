@@ -55,17 +55,17 @@ export default function FacultyProfilePage() {
         throw new Error("You must be signed in as faculty to view this page.");
       }
 
-      const { data: prof, error: profErr } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .single();
+      // Profile and the full course list are independent — fetch in parallel.
+      const [profRes, coursesRes] = await Promise.all([
+        supabase.from("profiles").select("*").eq("id", user.id).single(),
+        supabase.from("courses").select("*"),
+      ]);
+
+      const { data: prof, error: profErr } = profRes;
       if (profErr || !prof) throw new Error(profErr?.message ?? "Profile not found.");
       setProfile(prof as Profile);
 
-      const { data: allCourses, error: courseErr } = await supabase
-        .from("courses")
-        .select("*");
+      const { data: allCourses, error: courseErr } = coursesRes;
       if (courseErr) throw new Error(courseErr.message);
 
       const mine = ((allCourses as Course[]) ?? [])

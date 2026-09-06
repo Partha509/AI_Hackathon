@@ -1,6 +1,7 @@
 import "server-only";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { SUPABASE_URL } from "@/lib/supabase/config";
+import { sendInviteEmail, isValidEmail } from "@/lib/email/mailer";
 import { nextSemester, parseSemesterFromCode, type Semester } from "@/lib/semester";
 import { nextSessionName } from "@/lib/session";
 import type {
@@ -41,6 +42,10 @@ export async function getSettings(): Promise<AppSettings> {
  */
 export async function createInvitedUser(input: CreateUserInput): Promise<CreateUserResult> {
   const admin = createAdminClient();
+  const email = input.email.trim().toLowerCase();
+  if (!isValidEmail(email)) {
+    throw new Error("Please enter a valid email address.");
+  }
   const redirectTo = `${appOrigin()}/auth/set-password`;
 
   const metadata: Record<string, unknown> = {
@@ -52,11 +57,11 @@ export async function createInvitedUser(input: CreateUserInput): Promise<CreateU
     metadata.current_semester = input.current_semester;
   }
 
-  // generateLink creates the auth user AND returns the invite action link
-  // (works without SMTP; if SMTP is configured, inviteUserByEmail also emails it).
+  // generateLink only creates the auth user and RETURNS the action link — it does
+  // not send any email itself (avoids Supabase's transactional mailer & bounces).
   const { data, error } = await admin.auth.admin.generateLink({
     type: "invite",
-    email: input.email,
+    email,
     options: { data: metadata, redirectTo },
   });
   if (error) throw new Error("Failed to create invite: " + error.message);
@@ -66,7 +71,7 @@ export async function createInvitedUser(input: CreateUserInput): Promise<CreateU
 
   const { error: pErr } = await admin.from("profiles").upsert({
     id: user.id,
-    email: input.email,
+    email,
     full_name: input.full_name,
     role: input.role,
     department: input.department ?? "CSE",
@@ -81,20 +86,24 @@ export async function createInvitedUser(input: CreateUserInput): Promise<CreateU
     throw new Error("Failed to create profile: " + pErr.message);
   }
 
-  // Best-effort: also trigger Supabase's invite email when SMTP is configured.
-  try {
-    await admin.auth.admin.inviteUserByEmail(input.email, {
-      data: metadata,
-      redirectTo,
+  const inviteLink = data.properties?.action_link ?? null;
+
+  // Deliver strictly via our own SMTP transport. If it's not configured or
+  // fails, the caller shows the returned link for manual sharing — we never
+  // trigger Supabase's built-in mailer (prevents bounce-rate issues).
+  if (inviteLink) {
+    await sendInviteEmail({
+      to: email,
+      fullName: input.full_name,
+      role: input.role,
+      verifyUrl: inviteLink,
     });
-  } catch {
-    // Ignore — the account exists and the returned link still works.
   }
 
   return {
     id: user.id,
-    email: input.email,
-    invite_link: data.properties?.action_link ?? `${SUPABASE_URL}`,
+    email,
+    invite_link: inviteLink ?? `${SUPABASE_URL}`,
   };
 }
 

@@ -20,6 +20,7 @@ import {
   type Profile,
 } from "@/lib/faculty-data";
 import { Button } from "@/components/ui/button";
+import { AddQuestionsDialog } from "@/components/faculty/AddQuestionsDialog";
 import { cn } from "@/lib/utils";
 
 interface QuestionRow extends ExamQuestion {
@@ -44,17 +45,18 @@ export default function FacultyQuestionsPage() {
   const [tab, setTab] = React.useState<"current" | "past">("current");
   const [current, setCurrent] = React.useState<QuestionRow[]>([]);
   const [past, setPast] = React.useState<QuestionRow[]>([]);
+  const [myCourses, setMyCourses] = React.useState<{ id: string; code: string; title: string }[]>([]);
   const [activeSemester, setActiveSemester] = React.useState("Spring 2025");
 
   // Past-archive filters.
   const [courseFilter, setCourseFilter] = React.useState("all");
   const [topicFilter, setTopicFilter] = React.useState("all");
 
-  React.useEffect(() => {
+  const load = React.useCallback(async () => {
     const supabase = createClient();
-
-    async function load() {
-      try {
+    setLoading(true);
+    setError(null);
+    try {
         const {
           data: { user },
         } = await supabase.auth.getUser();
@@ -77,6 +79,7 @@ export default function FacultyQuestionsPage() {
         const mine = ((courses as Course[]) ?? []).filter((c) =>
           isCourseForFaculty(c, prof as Profile)
         );
+        setMyCourses(mine.map((c) => ({ id: c.id, code: c.code, title: c.title })));
         const myCourseIds = new Set(mine.map((c) => c.id));
         const codeById = new Map(mine.map((c) => [c.id, c.code]));
 
@@ -108,10 +111,11 @@ export default function FacultyQuestionsPage() {
       } finally {
         setLoading(false);
       }
-    }
-
-    load();
   }, []);
+
+  React.useEffect(() => {
+    load();
+  }, [load]);
 
   const pastCourses = React.useMemo(
     () => Array.from(new Set(past.map((p) => p.courseCode))).sort(),
@@ -151,10 +155,13 @@ export default function FacultyQuestionsPage() {
           <FileQuestion className="h-7 w-7 text-primary shrink-0" />
           Exam Questions &amp; Past Archive
         </h1>
-        <p className="text-sm text-muted-foreground mt-1 max-w-3xl">
-          Review your active exam questions and browse historical question patterns from past
-          semesters.
-        </p>
+        <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mt-1">
+          <p className="text-sm text-muted-foreground max-w-3xl">
+            Review your active exam questions and browse historical question patterns from past
+            semesters.
+          </p>
+          <AddQuestionsDialog courses={myCourses} onAdded={load} />
+        </div>
       </div>
 
       {/* Tabs */}
